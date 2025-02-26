@@ -1,7 +1,7 @@
 # FandomBatchDeleteTool
 由Claude 3.7生成
 
-一个诡异的bug：Firefox浏览器窗口最大化的时候无法加载……
+一个诡异的bug：Firefox浏览器随机出现无法加载的bug……
 ### 安装
 1.安装Tampermonkey浏览器扩展
 
