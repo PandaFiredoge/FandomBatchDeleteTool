@@ -1,10 +1,9 @@
 // ==UserScript==
 // @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      1.7
+// @version      2.0.2
 // @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面
 // @match        *://*.fandom.com/*/wiki/Special:*
-// @match        *://*.wikia.com/*/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
 // ==/UserScript==
