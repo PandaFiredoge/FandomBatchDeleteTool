@@ -1,10 +1,9 @@
 // ==UserScript==
 // @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      1.4
-// @description  一个用于Fandom站点的批量删除页面并可选保护的工具
+// @version      2.0
+// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面
 // @match        *://*.fandom.com/*/wiki/Special:*
-// @match        *://*.wikia.com/*/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
 // ==/UserScript==
@@ -75,15 +74,17 @@
                 </div>
             </div>
 
-            <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button id="load-category-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">加载分类页面</button>
                 <button id="load-prefix-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">加载前缀页面</button>
+                <button id="load-regex-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">正则匹配页面</button>
+                <button id="load-user-pages-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">用户创建的页面</button>
                 <button id="preview-button" style="padding: 8px 15px; background-color: #5bc0de; color: white; border: none; border-radius: 3px; cursor: pointer;">预览页面列表</button>
                 <button id="delete-button" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer;">开始删除</button>
             </div>
 
             <div id="modal-container" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-                <div id="modal-content" style="background-color: white; margin: 10% auto; padding: 20px; border-radius: 5px; width: 60%; max-width: 600px;">
+                <div id="modal-content" style="background-color: white; margin: 10% auto; padding: 20px; border-radius: 5px; width: 70%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
                     <span id="modal-close" style="float: right; cursor: pointer; font-size: 20px;">&times;</span>
                     <div id="modal-body"></div>
                 </div>
@@ -115,12 +116,81 @@
         document.getElementById('delete-button').addEventListener('click', startDeletion);
         document.getElementById('load-category-button').addEventListener('click', showCategoryModal);
         document.getElementById('load-prefix-button').addEventListener('click', showPrefixModal);
+        document.getElementById('load-regex-button').addEventListener('click', showRegexModal);
+        document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal); // 新增用户页面按钮事件
         document.getElementById('modal-close').addEventListener('click', closeModal);
 
         // 添加保护选项切换功能
         document.getElementById('protect-after-delete').addEventListener('change', function() {
             document.getElementById('protection-options').style.display = this.checked ? 'block' : 'none';
         });
+
+        // 添加CSS样式
+        addStyles();
+    }
+
+    // 添加CSS样式
+    function addStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .collapsible-section {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 15px;
+            }
+            
+            .collapsible-header {
+                padding: 10px;
+                background-color: #f5f5f5;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-weight: bold;
+            }
+            
+            .collapsible-header:hover {
+                background-color: #e9e9e9;
+            }
+            
+            .collapsible-content {
+                padding: 10px;
+                border-top: 1px solid #ddd;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            
+            .collapsed .collapsible-content {
+                display: none;
+            }
+            
+            .page-list-container {
+                max-height: 300px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+            }
+            
+            .action-buttons {
+                position: sticky;
+                bottom: 0;
+                background-color: white;
+                padding: 10px 0;
+                border-top: 1px solid #ddd;
+                margin-top: 10px;
+            }
+            
+            #modal-content {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            #modal-body {
+                overflow-y: auto;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // 显示消息
@@ -156,6 +226,20 @@
             <h3>${title}</h3>
             ${content}
         `;
+
+        // 添加折叠区域的事件监听器
+        setTimeout(() => {
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const section = this.parentElement;
+                    section.classList.toggle('collapsed');
+                    const chevron = this.querySelector('.chevron');
+                    if (chevron) {
+                        chevron.textContent = section.classList.contains('collapsed') ? '▼' : '▲';
+                    }
+                });
+            });
+        }, 100);
     }
 
     // 关闭模态框
@@ -163,7 +247,495 @@
         document.getElementById('modal-container').style.display = 'none';
     }
 
-    // 显示分类模态框
+    // 创建可折叠区域
+    function createCollapsibleSection(title, contentHtml, initiallyCollapsed = false) {
+        return `
+            <div class="collapsible-section ${initiallyCollapsed ? 'collapsed' : ''}">
+                <div class="collapsible-header">
+                    <span>${title}</span>
+                    <span class="chevron">${initiallyCollapsed ? '▼' : '▲'}</span>
+                </div>
+                <div class="collapsible-content">
+                    ${contentHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    // 显示用户页面模态框 - 修改后的函数
+    function showUserPagesModal() {
+        const content = `
+            <div style="margin-bottom: 15px;">
+                <label for="username">用户名：</label>
+                <input type="text" id="username" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" placeholder="输入用户名（不含User:前缀）">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="date-limit">时间限制（可选）：</label>
+                <input type="date" id="date-limit" style="padding: 8px; margin-top: 5px; border: 1px solid #ddd;">
+                <small style="display: block; margin-top: 5px; color: #666;">只加载此日期之后创建的页面。留空表示加载所有页面。</small>
+            </div>
+
+            ${createCollapsibleSection('命名空间选项', `
+                <div style="margin-top: 5px;">
+                    <input type="checkbox" id="namespace-main" checked>
+                    <label for="namespace-main">主命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="namespace-user">
+                    <label for="namespace-user">用户命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="namespace-template">
+                    <label for="namespace-template">模板命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="namespace-category">
+                    <label for="namespace-category">分类命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="namespace-file">
+                    <label for="namespace-file">文件命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="namespace-other">
+                    <label for="namespace-other">其他命名空间</label>
+                </div>
+            `, true)}
+
+            <button id="load-user-pages-button-modal" style="padding: 8px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer; margin-top: 15px;">加载用户创建的页面</button>
+
+            <div id="user-pages-results" style="margin-top: 15px;"></div>
+        `;
+
+        showModal('加载用户创建的页面', content);
+
+        document.getElementById('load-user-pages-button-modal').addEventListener('click', function() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                showMessage('请输入有效的用户名', 'error');
+                return;
+            }
+
+            const dateLimit = document.getElementById('date-limit').value;
+            
+            // 获取选中的命名空间
+            const namespaces = [];
+            if (document.getElementById('namespace-main').checked) namespaces.push(0);
+            if (document.getElementById('namespace-user').checked) namespaces.push(2, 3);
+            if (document.getElementById('namespace-template').checked) namespaces.push(10, 11);
+            if (document.getElementById('namespace-category').checked) namespaces.push(14, 15);
+            if (document.getElementById('namespace-file').checked) namespaces.push(6, 7);
+            if (document.getElementById('namespace-other').checked) namespaces.push(4, 5, 8, 9, 12, 13);
+
+            document.getElementById('user-pages-results').innerHTML = '<p>正在加载用户创建的页面，请稍候...</p>';
+            loadUserCreatedPages(username, dateLimit, namespaces);
+        });
+    }
+
+    // 加载用户创建的页面 - 未修改
+    function loadUserCreatedPages(username, dateLimit, namespaces) {
+        const api = new mw.Api();
+        const resultContainer = document.getElementById('user-pages-results');
+        
+        // 构建参数
+        let params = {
+            action: 'query',
+            list: 'usercontribs',
+            ucuser: username,
+            uclimit: 500,
+            ucprop: 'title|timestamp',
+            ucshow: 'new', // 只显示创建新页面的贡献
+            format: 'json'
+        };
+
+        // 添加日期限制
+        if (dateLimit) {
+            params.ucend = dateLimit + 'T00:00:00Z'; // 转换为ISO格式
+        }
+        
+        // 添加命名空间限制
+        if (namespaces && namespaces.length > 0) {
+            params.ucnamespace = namespaces.join('|');
+        }
+
+        // 显示加载状态
+        resultContainer.innerHTML = '<p>正在查询用户创建的页面，这可能需要一些时间...</p>';
+
+        // 保存找到的页面
+        const userPages = [];
+
+        // 递归函数获取所有页面
+        function getUserContributions(continueParam) {
+            if (continueParam) {
+                // 添加continue参数
+                for (let prop in continueParam) {
+                    params[prop] = continueParam[prop];
+                }
+            }
+
+            api.get(params).done(function(data) {
+                if (data.query && data.query.usercontribs) {
+                    data.query.usercontribs.forEach(function(contrib) {
+                        userPages.push({
+                            title: contrib.title,
+                            timestamp: contrib.timestamp
+                        });
+                    });
+                    
+                    // 更新状态信息
+                    resultContainer.innerHTML = `<p>已找到 ${userPages.length} 个由 ${username} 创建的页面，正在继续搜索...</p>`;
+
+                    // 如果有更多结果，继续查询
+                    if (data.continue) {
+                        getUserContributions(data.continue);
+                    } else {
+                        // 完成所有查询
+                        displayUserPagesResults(username, userPages);
+                    }
+                } else {
+                    // 没有找到贡献或出现错误
+                    if (userPages.length === 0) {
+                        resultContainer.innerHTML = `<p>未找到用户 "${username}" 创建的页面。</p>`;
+                    } else {
+                        displayUserPagesResults(username, userPages);
+                    }
+                }
+            }).fail(function(code, result) {
+                resultContainer.innerHTML = `<p>查询用户贡献失败: ${result.error ? result.error.info : code}</p>`;
+            });
+        }
+
+        // 开始查询
+        getUserContributions();
+    }
+
+    // 显示用户创建的页面结果 - 修改后的函数
+    function displayUserPagesResults(username, pages) {
+        const resultContainer = document.getElementById('user-pages-results');
+
+        if (pages.length === 0) {
+            resultContainer.innerHTML = `<p>未找到用户 "${username}" 创建的页面。</p>`;
+            return;
+        }
+
+        // 按时间倒序排序（最新的在前）
+        pages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // 创建折叠区域的内容
+        let pagesContent = `
+            <div style="margin-bottom: 10px;">
+                <input type="checkbox" id="select-all-user-pages" checked>
+                <label for="select-all-user-pages">全选/取消全选</label>
+            </div>
+            
+            <div class="page-list-container">
+        `;
+
+        pages.forEach((page, index) => {
+            // 格式化时间戳为可读格式
+            const date = new Date(page.timestamp);
+            const formattedDate = date.toLocaleString();
+
+            pagesContent += `
+                <div style="margin: 5px 0;">
+                    <input type="checkbox" id="user-page-${index}" class="page-checkbox" value="${page.title}" checked>
+                    <label for="user-page-${index}">${page.title}</label>
+                    <small style="margin-left: 5px; color: #666;">(创建于 ${formattedDate})</small>
+                </div>
+            `;
+        });
+
+        pagesContent += `</div>`;
+
+        // 创建固定底部的操作按钮
+        const actionButtons = `
+            <div class="action-buttons">
+                <button id="add-user-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+            </div>
+        `;
+
+        // 组合内容
+        const html = `
+            <h4>找到 ${pages.length} 个由 "${username}" 创建的页面：</h4>
+            ${createCollapsibleSection('页面列表', pagesContent)}
+            ${actionButtons}
+        `;
+
+        resultContainer.innerHTML = html;
+
+        // 添加全选/取消全选功能
+        document.getElementById('select-all-user-pages').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('#user-pages-results .page-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+        });
+
+        // 添加添加到列表功能
+        document.getElementById('add-user-pages-button').addEventListener('click', function() {
+            const selectedPages = [];
+            document.querySelectorAll('#user-pages-results .page-checkbox:checked').forEach(cb => {
+                selectedPages.push(cb.value);
+            });
+
+            if (selectedPages.length === 0) {
+                showMessage('请至少选择一个页面', 'error');
+                return;
+            }
+
+            const textarea = document.getElementById('pages-to-delete');
+            const existingText = textarea.value.trim();
+            const newText = selectedPages.join('\n');
+            textarea.value = existingText ? existingText + '\n' + newText : newText;
+
+            // 更新删除原因以包含用户名
+            const reasonInput = document.getElementById('delete-reason');
+            if (reasonInput.value === '批量清理') {
+                reasonInput.value = `清理用户 ${username} 创建的页面`;
+            }
+
+            closeModal();
+            showMessage(`已添加 ${selectedPages.length} 个页面到删除列表`, 'success');
+        });
+    }
+
+    // 显示正则匹配模态框 - 修改后的函数
+    function showRegexModal() {
+        // 获取命名空间列表
+        const namespaces = [
+            {id: '0', name: '(主命名空间)'},
+            {id: '1', name: 'Talk'},
+            {id: '2', name: 'User'},
+            {id: '3', name: 'User talk'},
+            {id: '4', name: 'Project'},
+            {id: '6', name: 'File'},
+            {id: '10', name: 'Template'},
+            {id: '14', name: 'Category'},
+            {id: '110', name: 'Forum'},
+            {id: '828', name: 'Module'}
+        ];
+
+        let namespaceOptions = '';
+        namespaces.forEach(ns => {
+            namespaceOptions += `<option value="${ns.id}">${ns.name}</option>`;
+        });
+
+        const content = `
+            <div style="margin-bottom: 15px;">
+                <label for="regex-pattern">正则表达式模式：</label>
+                <input type="text" id="regex-pattern" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" placeholder="例如: ^User:.+/沙盒$">
+                <small style="display: block; margin-top: 5px; color: #666;">提示：使用JavaScript正则表达式语法，例如 ^Template:Test.* 将匹配所有以"Template:Test"开头的页面。</small>
+            </div>
+
+            ${createCollapsibleSection('高级选项', `
+                <div style="margin-bottom: 15px;">
+                    <label for="regex-namespace">在此命名空间中搜索：</label>
+                    <select id="regex-namespace" style="padding: 8px; margin-left: 5px;">
+                        <option value="all">所有命名空间</option>
+                        ${namespaceOptions}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="regex-flags">正则表达式标志：</label>
+                    <input type="text" id="regex-flags" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" value="i" placeholder="例如: i">
+                    <small style="display: block; margin-top: 5px; color: #666;">i = 忽略大小写, g = 全局匹配, m = 多行匹配</small>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <input type="checkbox" id="regex-case-sensitive" style="margin-right: 5px;">
+                    <label for="regex-case-sensitive">区分大小写</label>
+                </div>
+            `, true)}
+
+            <button id="load-regex-pages-button" style="padding: 8px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer; margin-top: 15px;">搜索匹配页面</button>
+
+            <div id="regex-results" style="margin-top: 15px;"></div>
+        `;
+
+        showModal('使用正则表达式匹配页面', content);
+
+        // 更新flags值的处理
+        document.getElementById('regex-case-sensitive').addEventListener('change', function() {
+            const flagsInput = document.getElementById('regex-flags');
+            if (this.checked) {
+                // 移除i标志
+                flagsInput.value = flagsInput.value.replace(/i/g, '');
+            } else if (!flagsInput.value.includes('i')) {
+                // 添加i标志
+                flagsInput.value += 'i';
+            }
+        });
+
+        document.getElementById('load-regex-pages-button').addEventListener('click', function() {
+            const pattern = document.getElementById('regex-pattern').value.trim();
+            const namespace = document.getElementById('regex-namespace').value;
+            const flags = document.getElementById('regex-flags').value.trim();
+
+            if (!pattern) {
+                showMessage('请输入有效的正则表达式', 'error');
+                return;
+            }
+
+            document.getElementById('regex-results').innerHTML = '<p>正在搜索匹配页面，请稍候...</p>';
+            searchPagesByRegex(pattern, namespace, flags);
+        });
+    }
+
+    // 使用正则表达式搜索页面 - 未修改
+    function searchPagesByRegex(pattern, namespace, flags) {
+        const api = new mw.Api();
+        const resultContainer = document.getElementById('regex-results');
+        
+        try {
+            // 测试正则表达式是否有效
+            new RegExp(pattern, flags);
+        } catch (e) {
+            resultContainer.innerHTML = `<p style="color: #a94442;">正则表达式无效: ${e.message}</p>`;
+            return;
+        }
+
+        // 构建查询参数
+        let params = {
+            action: 'query',
+            list: 'allpages',
+            aplimit: 500,
+            format: 'json'
+        };
+
+        // 只有在选择了特定命名空间时才添加命名空间参数
+        if (namespace !== 'all') {
+            params.apnamespace = namespace;
+        }
+
+        // 创建正则表达式对象
+        const regex = new RegExp(pattern, flags);
+        
+        // 显示加载状态
+        resultContainer.innerHTML = '<p>正在加载页面，这可能需要一些时间...</p>';
+
+        // 保存匹配的页面
+        let matchedPages = [];
+        
+        // 执行递归API调用来获取所有页面
+        function getAllPages(continueParam) {
+            if (continueParam) {
+                // 添加continue参数
+                for (let prop in continueParam) {
+                    params[prop] = continueParam[prop];
+                }
+            }
+
+            api.get(params).done(function(data) {
+                if (data.query && data.query.allpages) {
+                    // 过滤匹配正则表达式的页面
+                    const pages = data.query.allpages;
+                    pages.forEach(function(page) {
+                        if (regex.test(page.title)) {
+                            matchedPages.push(page.title);
+                        }
+                    });
+                    
+                    // 更新状态
+                    resultContainer.innerHTML = `<p>已找到 ${matchedPages.length} 个匹配页面，正在继续搜索...</p>`;
+
+                    // 如果有更多页面，继续获取
+                    if (data.continue) {
+                        getAllPages(data.continue);
+                    } else {
+                        // 最终完成
+                        displayRegexResults(matchedPages, pattern, flags);
+                    }
+                } else {
+                    displayRegexResults(matchedPages, pattern, flags);
+                }
+            }).fail(function() {
+                resultContainer.innerHTML = '<p>获取页面列表失败，请重试。</p>';
+            });
+        }
+
+        // 开始获取页面
+        getAllPages();
+    }
+
+    // 显示正则匹配结果 - 修改后的函数
+    function displayRegexResults(pages, pattern, flags) {
+        const resultContainer = document.getElementById('regex-results');
+
+        if (pages.length === 0) {
+            resultContainer.innerHTML = `<p>没有找到匹配正则表达式 "${pattern}" 的页面。</p>`;
+            return;
+        }
+
+        // 创建折叠区域的内容
+        let pagesContent = `
+            <div style="margin-bottom: 10px;">
+                <input type="checkbox" id="select-all-regex" checked>
+                <label for="select-all-regex">全选/取消全选</label>
+            </div>
+            
+            <div class="page-list-container">
+        `;
+
+        pages.forEach((page, index) => {
+            pagesContent += `
+                <div style="margin: 5px 0;">
+                    <input type="checkbox" id="regex-page-${index}" class="page-checkbox" value="${page}" checked>
+                    <label for="regex-page-${index}">${page}</label>
+                </div>
+            `;
+        });
+
+        pagesContent += `</div>`;
+
+        // 创建固定底部的操作按钮
+        const actionButtons = `
+            <div class="action-buttons">
+                <button id="add-regex-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+            </div>
+        `;
+
+        // 组合内容
+        const html = `
+            <h4>找到 ${pages.length} 个匹配正则表达式 /${pattern}/${flags} 的页面：</h4>
+            ${createCollapsibleSection('页面列表', pagesContent)}
+            ${actionButtons}
+        `;
+
+        resultContainer.innerHTML = html;
+
+        // 添加全选/取消全选功能
+        document.getElementById('select-all-regex').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('#regex-results .page-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+        });
+
+        // 添加添加到列表功能
+        document.getElementById('add-regex-pages-button').addEventListener('click', function() {
+            const selectedPages = [];
+            document.querySelectorAll('#regex-results .page-checkbox:checked').forEach(cb => {
+                selectedPages.push(cb.value);
+            });
+
+            if (selectedPages.length === 0) {
+                showMessage('请至少选择一个页面', 'error');
+                return;
+            }
+
+            const textarea = document.getElementById('pages-to-delete');
+            const existingText = textarea.value.trim();
+            const newText = selectedPages.join('\n');
+            textarea.value = existingText ? existingText + '\n' + newText : newText;
+
+            closeModal();
+            showMessage(`已添加 ${selectedPages.length} 个页面到删除列表`, 'success');
+        });
+    }
+
+    // 显示分类模态框 - 修改后的函数
     function showCategoryModal() {
         const content = `
             <div style="margin-bottom: 15px;">
@@ -202,7 +774,7 @@
         });
     }
 
-    // 显示前缀模态框
+    // 显示前缀模态框 - 修改后的函数
     function showPrefixModal() {
         // 获取命名空间列表
         const namespaces = [
@@ -257,7 +829,7 @@
         });
     }
 
-    // 从分类加载页面
+    // 从分类加载页面 - 未修改
     function loadPagesFromCategory(categoryName, depth) {
         const api = new mw.Api();
 
@@ -299,7 +871,7 @@
         });
     }
 
-    // 递归加载子分类
+    // 递归加载子分类 - 未修改
     function loadSubcategories(subcats, allPages, remainingDepth) {
         if (subcats.length === 0 || remainingDepth < 0) return;
 
@@ -344,7 +916,7 @@
         });
     }
 
-    // 显示分类结果
+    // 显示分类结果 - 修改后的函数
     function displayCategoryResults(categoryName, pages) {
         const resultContainer = document.getElementById('category-results');
 
@@ -353,19 +925,18 @@
             return;
         }
 
-        let html = `<h4>在分类 "${categoryName}" 中找到 ${pages.length} 个页面：</h4>`;
-
-        html += `
+        // 创建折叠区域的内容
+        let pagesContent = `
             <div style="margin-bottom: 10px;">
                 <input type="checkbox" id="select-all-category" checked>
                 <label for="select-all-category">全选/取消全选</label>
             </div>
-
-            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
+            
+            <div class="page-list-container">
         `;
 
         pages.forEach((page, index) => {
-            html += `
+            pagesContent += `
                 <div style="margin: 5px 0;">
                     <input type="checkbox" id="cat-page-${index}" class="page-checkbox" value="${page}" checked>
                     <label for="cat-page-${index}">${page}</label>
@@ -373,8 +944,20 @@
             `;
         });
 
-        html += `</div>
-            <button id="add-category-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+        pagesContent += `</div>`;
+
+        // 创建固定底部的操作按钮
+        const actionButtons = `
+            <div class="action-buttons">
+                <button id="add-category-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+            </div>
+        `;
+
+        // 组合内容
+        const html = `
+            <h4>在分类 "${categoryName}" 中找到 ${pages.length} 个页面：</h4>
+            ${createCollapsibleSection('页面列表', pagesContent)}
+            ${actionButtons}
         `;
 
         resultContainer.innerHTML = html;
@@ -409,7 +992,7 @@
         });
     }
 
-    // 从前缀加载页面
+    // 从前缀加载页面 - 未修改
     function loadPagesFromPrefix(prefix, namespace) {
         const api = new mw.Api();
 
@@ -438,7 +1021,7 @@
         });
     }
 
-    // 显示前缀结果
+    // 显示前缀结果 - 修改后的函数
     function displayPrefixResults(prefix, namespace, pages) {
         const resultContainer = document.getElementById('prefix-results');
 
@@ -449,19 +1032,18 @@
 
         const namespaceText = document.querySelector('#namespace-select option[value="' + namespace + '"]')?.textContent || namespace;
 
-        let html = `<h4>在命名空间 "${namespaceText}" 中找到 ${pages.length} 个以 "${prefix}" 开头的页面：</h4>`;
-
-        html += `
+        // 创建折叠区域的内容
+        let pagesContent = `
             <div style="margin-bottom: 10px;">
                 <input type="checkbox" id="select-all-prefix" checked>
                 <label for="select-all-prefix">全选/取消全选</label>
             </div>
-
-            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
+            
+            <div class="page-list-container">
         `;
 
         pages.forEach((page, index) => {
-            html += `
+            pagesContent += `
                 <div style="margin: 5px 0;">
                     <input type="checkbox" id="prefix-page-${index}" class="page-checkbox" value="${page}" checked>
                     <label for="prefix-page-${index}">${page}</label>
@@ -469,8 +1051,20 @@
             `;
         });
 
-        html += `</div>
-            <button id="add-prefix-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+        pagesContent += `</div>`;
+
+        // 创建固定底部的操作按钮
+        const actionButtons = `
+            <div class="action-buttons">
+                <button id="add-prefix-pages-button" style="padding: 6px 12px; background-color: #5cb85c; color: white; border: none; border-radius: 3px; cursor: pointer;">将选中页面添加到删除列表</button>
+            </div>
+        `;
+
+        // 组合内容
+        const html = `
+            <h4>在命名空间 "${namespaceText}" 中找到 ${pages.length} 个以 "${prefix}" 开头的页面：</h4>
+            ${createCollapsibleSection('页面列表', pagesContent)}
+            ${actionButtons}
         `;
 
         resultContainer.innerHTML = html;
@@ -505,7 +1099,7 @@
         });
     }
 
-    // 预览页面
+    // 预览页面 - 未修改
     function previewPages() {
         const pagesText = document.getElementById('pages-to-delete').value.trim();
         if (!pagesText) {
@@ -556,11 +1150,13 @@
 
             ${protectionInfo}
 
-            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px; border: 1px solid #ddd; padding: 10px;">
-                <ol>
-                    ${pagesToDelete.map(page => `<li>${page}</li>`).join('')}
-                </ol>
-            </div>
+            ${createCollapsibleSection('页面列表', `
+                <div class="page-list-container">
+                    <ol>
+                        ${pagesToDelete.map(page => `<li>${page}</li>`).join('')}
+                    </ol>
+                </div>
+            `)}
 
             <div style="margin-top: 15px; padding: 10px; background-color: #fcf8e3; border: 1px solid #faebcc; color: #8a6d3b; border-radius: 4px;">
                 <strong>警告:</strong> 请确认以上列表。点击"开始删除"后，这些页面将被永久删除。此操作无法撤销，请确保您有删除权限。
@@ -570,7 +1166,7 @@
         showModal('预览删除列表', content);
     }
 
-    // 开始删除
+    // 开始删除 - 未修改
     function startDeletion() {
         const pagesText = document.getElementById('pages-to-delete').value.trim();
         if (!pagesText) {
@@ -619,7 +1215,7 @@
         processPageDeletion(pagesToDelete, 0, reason, protectionParams);
     }
 
-    // 转换保护期限为MediaWiki API接受的格式
+    // 转换保护期限为MediaWiki API接受的格式 - 未修改
     function convertExpiryToTimestamp(expiryOption) {
         // 如果是infinite（永久），直接返回
         if (expiryOption === 'infinite') {
@@ -655,7 +1251,7 @@
         return now.toISOString().replace(/\.\d+Z$/, 'Z');
     }
 
-    // 处理页面删除（递归）
+    // 处理页面删除（递归） - 未修改
     function processPageDeletion(pages, index, reason, protectionParams) {
         if (index >= pages.length) {
             // 所有页面处理完毕
@@ -710,33 +1306,32 @@
         });
     }
 
-    // 保护已删除的页面
-
+    // 保护已删除的页面 - 未修改
     function protectDeletedPage(page, protectionParams, resultsElement) {
-    const api = new mw.Api();
-    api.postWithToken('csrf', {
-        action: 'protect',
-        title: page,
-        protections: 'create=' + protectionParams.level,
-        expiry: protectionParams.expiry, // 移除了"create="前缀
-        reason: protectionParams.reason,
-        format: 'json'
-    }).done(function() {
-        // 保护成功
-        const resultItem = document.createElement('div');
-        resultItem.style.color = '#3a87ad';
-        resultItem.textContent = '🔒 成功保护: ' + page;
-        resultsElement.appendChild(resultItem);
-    }).fail(function(code, result) {
-        // 保护失败
-        const resultItem = document.createElement('div');
-        resultItem.style.color = '#8a6d3b';
-        resultItem.textContent = '⚠ 保护失败: ' + page + ' - ' + (result.error ? result.error.info : code);
-        resultsElement.appendChild(resultItem);
+        const api = new mw.Api();
+        api.postWithToken('csrf', {
+            action: 'protect',
+            title: page,
+            protections: 'create=' + protectionParams.level,
+            expiry: protectionParams.expiry,
+            reason: protectionParams.reason,
+            format: 'json'
+        }).done(function() {
+            // 保护成功
+            const resultItem = document.createElement('div');
+            resultItem.style.color = '#3a87ad';
+            resultItem.textContent = '🔒 成功保护: ' + page;
+            resultsElement.appendChild(resultItem);
+        }).fail(function(code, result) {
+            // 保护失败
+            const resultItem = document.createElement('div');
+            resultItem.style.color = '#8a6d3b';
+            resultItem.textContent = '⚠ 保护失败: ' + page + ' - ' + (result.error ? result.error.info : code);
+            resultsElement.appendChild(resultItem);
         });
     }
 
-    // 检查页面是否存在
+    // 检查页面是否存在 - 未修改
     function checkPageExists(pageName, callback) {
         const api = new mw.Api();
         api.get({
