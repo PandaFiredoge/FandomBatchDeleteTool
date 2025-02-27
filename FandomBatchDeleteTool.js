@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      2.0.2
-// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面
+// @version      2.1
+// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率
 // @match        *://*.fandom.com/*/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
@@ -40,6 +40,15 @@
             <div style="margin-top: 15px;">
                 <label for="delete-reason">删除原因：</label>
                 <input type="text" id="delete-reason" value="批量清理" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+            </div>
+
+            <div style="margin-top: 15px; display: flex; align-items: center;">
+                <label for="processing-rate" style="margin-right: 10px;">处理速率：</label>
+                <input type="number" id="processing-rate" min="0.2" max="10" step="0.1" value="1" style="width: 70px; padding: 8px; border: 1px solid #ddd;">
+                <span style="margin-left: 5px;">秒/页面</span>
+                <div style="margin-left: 15px; color: #666; font-size: 0.9em;">
+                    （推荐：0.5-2秒，过快可能导致API限制）
+                </div>
             </div>
 
             <div style="margin-top: 15px;">
@@ -117,12 +126,25 @@
         document.getElementById('load-category-button').addEventListener('click', showCategoryModal);
         document.getElementById('load-prefix-button').addEventListener('click', showPrefixModal);
         document.getElementById('load-regex-button').addEventListener('click', showRegexModal);
-        document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal); // 新增用户页面按钮事件
+        document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal); 
         document.getElementById('modal-close').addEventListener('click', closeModal);
 
         // 添加保护选项切换功能
         document.getElementById('protect-after-delete').addEventListener('change', function() {
             document.getElementById('protection-options').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // 添加处理速率验证
+        const rateInput = document.getElementById('processing-rate');
+        rateInput.addEventListener('change', function() {
+            const value = parseFloat(this.value);
+            if (isNaN(value) || value < 0.2) {
+                this.value = 0.2;
+                showMessage('处理速率不能低于0.2秒/页面', 'error');
+            } else if (value > 10) {
+                this.value = 10;
+                showMessage('处理速率不能高于10秒/页面', 'error');
+            }
         });
 
         // 添加CSS样式
@@ -189,6 +211,23 @@
             #modal-body {
                 overflow-y: auto;
             }
+            
+            /* 新增样式 */
+            .rate-control {
+                display: flex;
+                align-items: center;
+                margin-top: 15px;
+            }
+            
+            .rate-slider {
+                flex: 1;
+                margin: 0 10px;
+            }
+            
+            .rate-value {
+                width: 60px;
+                text-align: center;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -227,24 +266,33 @@
             ${content}
         `;
 
-        // 添加折叠区域的事件监听器
-        setTimeout(() => {
-            document.querySelectorAll('.collapsible-header').forEach(header => {
-                header.addEventListener('click', function() {
-                    const section = this.parentElement;
-                    section.classList.toggle('collapsed');
-                    const chevron = this.querySelector('.chevron');
-                    if (chevron) {
-                        chevron.textContent = section.classList.contains('collapsed') ? '▼' : '▲';
-                    }
-                });
-            });
-        }, 100);
+        // 修复：立即添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
     }
 
     // 关闭模态框
     function closeModal() {
         document.getElementById('modal-container').style.display = 'none';
+    }
+
+    // 添加折叠区域的事件监听器 - 新函数
+    function addCollapsibleSectionsEventListeners() {
+        document.querySelectorAll('.collapsible-header').forEach(header => {
+            // 移除现有事件监听器防止重复
+            header.removeEventListener('click', toggleCollapsibleSection);
+            // 添加新的事件监听器
+            header.addEventListener('click', toggleCollapsibleSection);
+        });
+    }
+
+    // 切换折叠区域 - 新函数
+    function toggleCollapsibleSection() {
+        const section = this.parentElement;
+        section.classList.toggle('collapsed');
+        const chevron = this.querySelector('.chevron');
+        if (chevron) {
+            chevron.textContent = section.classList.contains('collapsed') ? '▼' : '▲';
+        }
     }
 
     // 创建可折叠区域
@@ -262,7 +310,7 @@
         `;
     }
 
-    // 显示用户页面模态框 - 修改后的函数
+    // 显示用户页面模态框
     function showUserPagesModal() {
         const content = `
             <div style="margin-bottom: 15px;">
@@ -333,7 +381,7 @@
         });
     }
 
-    // 加载用户创建的页面 - 未修改
+    // 加载用户创建的页面
     function loadUserCreatedPages(username, dateLimit, namespaces) {
         const api = new mw.Api();
         const resultContainer = document.getElementById('user-pages-results');
@@ -410,7 +458,7 @@
         getUserContributions();
     }
 
-    // 显示用户创建的页面结果 - 修改后的函数
+    // 显示用户创建的页面结果
     function displayUserPagesResults(username, pages) {
         const resultContainer = document.getElementById('user-pages-results');
 
@@ -463,6 +511,9 @@
         `;
 
         resultContainer.innerHTML = html;
+        
+        // 修复：添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
 
         // 添加全选/取消全选功能
         document.getElementById('select-all-user-pages').addEventListener('change', function() {
@@ -500,7 +551,7 @@
         });
     }
 
-    // 显示正则匹配模态框 - 修改后的函数
+    // 显示正则匹配模态框
     function showRegexModal() {
         // 获取命名空间列表
         const namespaces = [
@@ -583,7 +634,7 @@
         });
     }
 
-    // 使用正则表达式搜索页面 - 未修改
+    // 使用正则表达式搜索页面
     function searchPagesByRegex(pattern, namespace, flags) {
         const api = new mw.Api();
         const resultContainer = document.getElementById('regex-results');
@@ -659,7 +710,7 @@
         getAllPages();
     }
 
-    // 显示正则匹配结果 - 修改后的函数
+    // 显示正则匹配结果
     function displayRegexResults(pages, pattern, flags) {
         const resultContainer = document.getElementById('regex-results');
 
@@ -704,6 +755,9 @@
         `;
 
         resultContainer.innerHTML = html;
+        
+        // 修复：添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
 
         // 添加全选/取消全选功能
         document.getElementById('select-all-regex').addEventListener('change', function() {
@@ -735,7 +789,7 @@
         });
     }
 
-    // 显示分类模态框 - 修改后的函数
+    // 显示分类模态框
     function showCategoryModal() {
         const content = `
             <div style="margin-bottom: 15px;">
@@ -774,7 +828,7 @@
         });
     }
 
-    // 显示前缀模态框 - 修改后的函数
+    // 显示前缀模态框
     function showPrefixModal() {
         // 获取命名空间列表
         const namespaces = [
@@ -829,7 +883,7 @@
         });
     }
 
-    // 从分类加载页面 - 未修改
+    // 从分类加载页面
     function loadPagesFromCategory(categoryName, depth) {
         const api = new mw.Api();
 
@@ -871,7 +925,7 @@
         });
     }
 
-    // 递归加载子分类 - 未修改
+    // 递归加载子分类
     function loadSubcategories(subcats, allPages, remainingDepth) {
         if (subcats.length === 0 || remainingDepth < 0) return;
 
@@ -916,7 +970,7 @@
         });
     }
 
-    // 显示分类结果 - 修改后的函数
+    // 显示分类结果
     function displayCategoryResults(categoryName, pages) {
         const resultContainer = document.getElementById('category-results');
 
@@ -961,6 +1015,9 @@
         `;
 
         resultContainer.innerHTML = html;
+        
+        // 修复：添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
 
         // 添加全选/取消全选功能
         document.getElementById('select-all-category').addEventListener('change', function() {
@@ -992,7 +1049,7 @@
         });
     }
 
-    // 从前缀加载页面 - 未修改
+    // 从前缀加载页面
     function loadPagesFromPrefix(prefix, namespace) {
         const api = new mw.Api();
 
@@ -1021,7 +1078,7 @@
         });
     }
 
-    // 显示前缀结果 - 修改后的函数
+    // 显示前缀结果
     function displayPrefixResults(prefix, namespace, pages) {
         const resultContainer = document.getElementById('prefix-results');
 
@@ -1068,6 +1125,9 @@
         `;
 
         resultContainer.innerHTML = html;
+        
+        // 修复：添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
 
         // 添加全选/取消全选功能
         document.getElementById('select-all-prefix').addEventListener('change', function() {
@@ -1099,7 +1159,7 @@
         });
     }
 
-    // 预览页面 - 未修改
+    // 预览页面
     function previewPages() {
         const pagesText = document.getElementById('pages-to-delete').value.trim();
         if (!pagesText) {
@@ -1118,6 +1178,7 @@
         }
 
         const protectEnabled = document.getElementById('protect-after-delete').checked;
+        const processingRate = document.getElementById('processing-rate').value;
         let protectionInfo = '';
 
         if (protectEnabled) {
@@ -1141,11 +1202,21 @@
             `;
         }
 
+        // 计算预计完成时间
+        const totalSeconds = pagesToDelete.length * parseFloat(processingRate);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.round(totalSeconds % 60);
+        const estimatedTime = minutes > 0 ? 
+            `${minutes}分${seconds}秒` : 
+            `${seconds}秒`;
+
         // 显示预览
         const content = `
             <div>
                 <strong>总页面数:</strong> ${pagesToDelete.length}<br>
-                <strong>删除原因:</strong> ${document.getElementById('delete-reason').value}
+                <strong>删除原因:</strong> ${document.getElementById('delete-reason').value}<br>
+                <strong>处理速率:</strong> ${processingRate} 秒/页面<br>
+                <strong>预计完成时间:</strong> 约 ${estimatedTime}
             </div>
 
             ${protectionInfo}
@@ -1159,14 +1230,14 @@
             `)}
 
             <div style="margin-top: 15px; padding: 10px; background-color: #fcf8e3; border: 1px solid #faebcc; color: #8a6d3b; border-radius: 4px;">
-                <strong>警告:</strong> 请确认以上列表。点击"开始删除"后，这些页面将被永久删除。此操作无法撤销，请确保您有删除权限。
+                <strong>警告:</strong> 请确认以上列表。点击"开始删除"后，这些页面将被删除。
             </div>
         `;
 
         showModal('预览删除列表', content);
     }
 
-    // 开始删除 - 未修改
+    // 开始删除
     function startDeletion() {
         const pagesText = document.getElementById('pages-to-delete').value.trim();
         if (!pagesText) {
@@ -1185,12 +1256,13 @@
         }
 
         // 删除确认
-        if (!confirm('您即将删除 ' + pagesToDelete.length + ' 个页面。此操作无法撤销。是否继续？')) {
+        if (!confirm('您即将删除 ' + pagesToDelete.length + ' 个页面。是否继续？')) {
             return;
         }
 
         // 准备删除
         const reason = document.getElementById('delete-reason').value;
+        const processingRate = parseFloat(document.getElementById('processing-rate').value) * 1000; // 转换为毫秒
 
         // 获取保护设置
         const protectEnabled = document.getElementById('protect-after-delete').checked;
@@ -1212,10 +1284,10 @@
         resultsElement.innerHTML = '';
 
         // 开始删除过程
-        processPageDeletion(pagesToDelete, 0, reason, protectionParams);
+        processPageDeletion(pagesToDelete, 0, reason, protectionParams, processingRate);
     }
 
-    // 转换保护期限为MediaWiki API接受的格式 - 未修改
+    // 转换保护期限为MediaWiki API接受的格式
     function convertExpiryToTimestamp(expiryOption) {
         // 如果是infinite（永久），直接返回
         if (expiryOption === 'infinite') {
@@ -1251,8 +1323,8 @@
         return now.toISOString().replace(/\.\d+Z$/, 'Z');
     }
 
-    // 处理页面删除（递归） - 未修改
-    function processPageDeletion(pages, index, reason, protectionParams) {
+    // 处理页面删除（递归）- 修改为使用自定义速率
+    function processPageDeletion(pages, index, reason, protectionParams, processingRate) {
         if (index >= pages.length) {
             // 所有页面处理完毕
             document.getElementById('progress-text').textContent = '完成! 删除操作已结束。';
@@ -1288,10 +1360,10 @@
                 protectDeletedPage(page, protectionParams, resultsElement);
             }
 
-            // 继续下一个
+            // 使用自定义速率延迟继续下一个
             setTimeout(function() {
-                processPageDeletion(pages, index + 1, reason, protectionParams);
-            }, 500); // 添加短暂延迟以避免过快发送请求
+                processPageDeletion(pages, index + 1, reason, protectionParams, processingRate);
+            }, processingRate); // 使用自定义处理速率
         }).fail(function(code, result) {
             // 删除失败
             const resultItem = document.createElement('div');
@@ -1299,14 +1371,14 @@
             resultItem.textContent = '✗ 删除失败: ' + page + ' - ' + (result.error ? result.error.info : code);
             resultsElement.appendChild(resultItem);
 
-            // 继续下一个
+            // 使用自定义速率延迟继续下一个
             setTimeout(function() {
-                processPageDeletion(pages, index + 1, reason, protectionParams);
-            }, 500); // 添加短暂延迟以避免过快发送请求
+                processPageDeletion(pages, index + 1, reason, protectionParams, processingRate);
+            }, processingRate); // 使用自定义处理速率
         });
     }
 
-    // 保护已删除的页面 - 未修改
+    // 保护已删除的页面
     function protectDeletedPage(page, protectionParams, resultsElement) {
         const api = new mw.Api();
         api.postWithToken('csrf', {
@@ -1331,7 +1403,7 @@
         });
     }
 
-    // 检查页面是否存在 - 未修改
+    // 检查页面是否存在
     function checkPageExists(pageName, callback) {
         const api = new mw.Api();
         api.get({
