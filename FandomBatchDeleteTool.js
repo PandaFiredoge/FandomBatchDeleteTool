@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Fandom批量删除工具
+// @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      1.1
-// @description  一个用于Fandom/MediaWiki站点的批量删除页面工具
+// @version      1.4
+// @description  一个用于Fandom站点的批量删除页面并可选保护的工具
 // @match        *://*.fandom.com/*/wiki/Special:*
 // @match        *://*.wikia.com/*/wiki/Special:*
 // @grant        none
@@ -34,13 +34,45 @@
         container.style.cssText = 'padding: 15px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; background-color: #f9f9f9;';
 
         container.innerHTML = `
-            <h2 style="margin-top: 0;">批量删除页面工具</h2>
+            <h2 style="margin-top: 0;">批量删除与保护页面工具</h2>
             <p>输入要删除的页面标题（每行一个）：</p>
             <textarea id="pages-to-delete" style="width: 100%; height: 150px; margin-bottom: 10px; padding: 8px; box-sizing: border-box; border: 1px solid #ddd;"></textarea>
 
             <div style="margin-top: 15px;">
                 <label for="delete-reason">删除原因：</label>
                 <input type="text" id="delete-reason" value="批量清理" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label>
+                    <input type="checkbox" id="protect-after-delete" style="margin-right: 5px;">
+                    删除后保护页面
+                </label>
+            </div>
+
+            <div id="protection-options" style="margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; display: none;">
+                <div style="margin-bottom: 10px;">
+                    <label for="protection-level">保护级别：</label>
+                    <select id="protection-level" style="padding: 5px;">
+                        <option value="sysop">仅管理员</option>
+                        <option value="autoconfirmed">仅自动确认用户</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="protection-reason">保护原因：</label>
+                    <input type="text" id="protection-reason" value="防止重建" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="protection-expiry">保护期限：</label>
+                    <select id="protection-expiry" style="padding: 5px;">
+                        <option value="1 week">1周</option>
+                        <option value="1 month">1个月</option>
+                        <option value="3 months">3个月</option>
+                        <option value="6 months">6个月</option>
+                        <option value="1 year">1年</option>
+                        <option value="infinite" selected>永久</option>
+                    </select>
+                </div>
             </div>
 
             <div style="margin-top: 15px; display: flex; gap: 10px;">
@@ -84,6 +116,11 @@
         document.getElementById('load-category-button').addEventListener('click', showCategoryModal);
         document.getElementById('load-prefix-button').addEventListener('click', showPrefixModal);
         document.getElementById('modal-close').addEventListener('click', closeModal);
+
+        // 添加保护选项切换功能
+        document.getElementById('protect-after-delete').addEventListener('change', function() {
+            document.getElementById('protection-options').style.display = this.checked ? 'block' : 'none';
+        });
     }
 
     // 显示消息
@@ -486,12 +523,38 @@
             return;
         }
 
+        const protectEnabled = document.getElementById('protect-after-delete').checked;
+        let protectionInfo = '';
+
+        if (protectEnabled) {
+            const protectionLevel = document.getElementById('protection-level').value;
+            const protectionExpiry = document.getElementById('protection-expiry').value;
+            const protectionReason = document.getElementById('protection-reason').value;
+
+            // 转换保护期限为人类可读形式
+            let readableExpiry = protectionExpiry;
+            if (protectionExpiry === 'infinite') {
+                readableExpiry = '永久';
+            }
+
+            protectionInfo = `
+                <div style="margin-top: 10px; padding: 8px; background-color: #d9edf7; border: 1px solid #bce8f1; border-radius: 4px;">
+                    <strong>删除后将保护这些页面：</strong><br>
+                    保护级别: ${protectionLevel === 'sysop' ? '仅管理员' : '仅自动确认用户'}<br>
+                    保护期限: ${readableExpiry}<br>
+                    保护原因: ${protectionReason}
+                </div>
+            `;
+        }
+
         // 显示预览
         const content = `
             <div>
                 <strong>总页面数:</strong> ${pagesToDelete.length}<br>
                 <strong>删除原因:</strong> ${document.getElementById('delete-reason').value}
             </div>
+
+            ${protectionInfo}
 
             <div style="max-height: 300px; overflow-y: auto; margin-top: 10px; border: 1px solid #ddd; padding: 10px;">
                 <ol>
@@ -532,6 +595,20 @@
 
         // 准备删除
         const reason = document.getElementById('delete-reason').value;
+
+        // 获取保护设置
+        const protectEnabled = document.getElementById('protect-after-delete').checked;
+        let protectionParams = null;
+
+        if (protectEnabled) {
+            // 保护参数
+            protectionParams = {
+                level: document.getElementById('protection-level').value,
+                expiry: convertExpiryToTimestamp(document.getElementById('protection-expiry').value),
+                reason: document.getElementById('protection-reason').value
+            };
+        }
+
         const statusContainer = document.getElementById('deletion-status');
         statusContainer.style.display = 'block';
 
@@ -539,11 +616,47 @@
         resultsElement.innerHTML = '';
 
         // 开始删除过程
-        processPageDeletion(pagesToDelete, 0, reason);
+        processPageDeletion(pagesToDelete, 0, reason, protectionParams);
+    }
+
+    // 转换保护期限为MediaWiki API接受的格式
+    function convertExpiryToTimestamp(expiryOption) {
+        // 如果是infinite（永久），直接返回
+        if (expiryOption === 'infinite') {
+            return 'infinite';
+        }
+
+        // 获取当前日期
+        const now = new Date();
+
+        // 根据选择的选项计算到期日期
+        switch (expiryOption) {
+            case '1 week':
+                now.setDate(now.getDate() + 7);
+                break;
+            case '1 month':
+                now.setMonth(now.getMonth() + 1);
+                break;
+            case '3 months':
+                now.setMonth(now.getMonth() + 3);
+                break;
+            case '6 months':
+                now.setMonth(now.getMonth() + 6);
+                break;
+            case '1 year':
+                now.setFullYear(now.getFullYear() + 1);
+                break;
+            default:
+                // 如果无法识别选项，默认为一周
+                now.setDate(now.getDate() + 7);
+        }
+
+        // 将日期格式化为MediaWiki API接受的格式：YYYY-MM-DDThh:mm:ssZ
+        return now.toISOString().replace(/\.\d+Z$/, 'Z');
     }
 
     // 处理页面删除（递归）
-    function processPageDeletion(pages, index, reason) {
+    function processPageDeletion(pages, index, reason, protectionParams) {
         if (index >= pages.length) {
             // 所有页面处理完毕
             document.getElementById('progress-text').textContent = '完成! 删除操作已结束。';
@@ -574,9 +687,14 @@
             resultItem.textContent = '✓ 成功删除: ' + page;
             resultsElement.appendChild(resultItem);
 
+            // 如果需要保护页面
+            if (protectionParams) {
+                protectDeletedPage(page, protectionParams, resultsElement);
+            }
+
             // 继续下一个
             setTimeout(function() {
-                processPageDeletion(pages, index + 1, reason);
+                processPageDeletion(pages, index + 1, reason, protectionParams);
             }, 500); // 添加短暂延迟以避免过快发送请求
         }).fail(function(code, result) {
             // 删除失败
@@ -587,15 +705,68 @@
 
             // 继续下一个
             setTimeout(function() {
-                processPageDeletion(pages, index + 1, reason);
-            }, 500);
+                processPageDeletion(pages, index + 1, reason, protectionParams);
+            }, 500); // 添加短暂延迟以避免过快发送请求
         });
     }
 
-    // 等待DOM加载完成
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', createInterface);
-    } else {
+    // 保护已删除的页面
+
+    function protectDeletedPage(page, protectionParams, resultsElement) {
+    const api = new mw.Api();
+    api.postWithToken('csrf', {
+        action: 'protect',
+        title: page,
+        protections: 'create=' + protectionParams.level,
+        expiry: protectionParams.expiry, // 移除了"create="前缀
+        reason: protectionParams.reason,
+        format: 'json'
+    }).done(function() {
+        // 保护成功
+        const resultItem = document.createElement('div');
+        resultItem.style.color = '#3a87ad';
+        resultItem.textContent = '🔒 成功保护: ' + page;
+        resultsElement.appendChild(resultItem);
+    }).fail(function(code, result) {
+        // 保护失败
+        const resultItem = document.createElement('div');
+        resultItem.style.color = '#8a6d3b';
+        resultItem.textContent = '⚠ 保护失败: ' + page + ' - ' + (result.error ? result.error.info : code);
+        resultsElement.appendChild(resultItem);
+        });
+    }
+
+    // 检查页面是否存在
+    function checkPageExists(pageName, callback) {
+        const api = new mw.Api();
+        api.get({
+            action: 'query',
+            titles: pageName,
+            format: 'json'
+        }).done(function(data) {
+            if (data.query && data.query.pages) {
+                // 页面ID为负数表示不存在
+                const pageId = Object.keys(data.query.pages)[0];
+                callback(parseInt(pageId) > 0);
+            } else {
+                callback(false);
+            }
+        }).fail(function() {
+            callback(false);
+        });
+    }
+
+    // 工具初始化
+    function initTool() {
+        console.log('正在初始化Fandom批量删除与保护工具...');
         createInterface();
+        console.log('Fandom批量删除与保护工具已加载。');
+    }
+
+    // 在DOM加载完成后初始化工具
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTool);
+    } else {
+        initTool();
     }
 })();
