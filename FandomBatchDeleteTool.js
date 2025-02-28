@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      2.1
-// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率
+// @version      2.3
+// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率，支持封禁用户
 // @match        *://*.fandom.com/*/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
@@ -228,6 +228,20 @@
                 width: 60px;
                 text-align: center;
             }
+            
+            /* 封禁选项样式 */
+            .ban-options {
+                margin-top: 15px;
+                padding: 10px;
+                background-color: #f8d7da;
+                border: 1px solid #f5c6cb;
+                border-radius: 4px;
+            }
+            
+            .ban-options.disabled {
+                opacity: 0.5;
+                pointer-events: none;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -324,6 +338,46 @@
                 <small style="display: block; margin-top: 5px; color: #666;">只加载此日期之后创建的页面。留空表示加载所有页面。</small>
             </div>
 
+            <!-- 修改：封禁用户选项 - 删除阻止用户发送邮件选项 -->
+            <div style="margin-top: 15px; margin-bottom: 15px;">
+                <div>
+                    <input type="checkbox" id="ban-user-checkbox" style="margin-right: 5px;">
+                    <label for="ban-user-checkbox" style="font-weight: bold; color: #d9534f;">在获取页面前封禁该用户</label>
+                </div>
+                
+                <div id="ban-options" class="ban-options disabled" style="margin-top: 10px;">
+                    <div style="margin-bottom: 10px;">
+                        <label for="ban-reason">封禁原因：</label>
+                        <input type="text" id="ban-reason" value="破坏行为" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label for="ban-duration">封禁期限：</label>
+                        <select id="ban-duration" style="padding: 5px;">
+                            <option value="1 day">1天</option>
+                            <option value="3 days">3天</option>
+                            <option value="1 week">1周</option>
+                            <option value="2 weeks">2周</option>
+                            <option value="1 month">1个月</option>
+                            <option value="3 months">3个月</option>
+                            <option value="6 months">6个月</option>
+                            <option value="1 year">1年</option>
+                            <option value="infinite">永久</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="ban-autoblock" checked style="margin-right: 5px;">
+                        <label for="ban-autoblock">自动封禁最后使用的IP地址</label>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="ban-talk-page" style="margin-right: 5px;">
+                        <label for="ban-talk-page">阻止用户编辑自己的讨论页</label>
+                    </div>
+                </div>
+            </div>
+
             ${createCollapsibleSection('命名空间选项', `
                 <div style="margin-top: 5px;">
                     <input type="checkbox" id="namespace-main" checked>
@@ -358,6 +412,16 @@
 
         showModal('加载用户创建的页面', content);
 
+        // 监听封禁选项复选框
+        document.getElementById('ban-user-checkbox').addEventListener('change', function() {
+            const banOptions = document.getElementById('ban-options');
+            if (this.checked) {
+                banOptions.classList.remove('disabled');
+            } else {
+                banOptions.classList.add('disabled');
+            }
+        });
+
         document.getElementById('load-user-pages-button-modal').addEventListener('click', function() {
             const username = document.getElementById('username').value.trim();
             if (!username) {
@@ -376,9 +440,108 @@
             if (document.getElementById('namespace-file').checked) namespaces.push(6, 7);
             if (document.getElementById('namespace-other').checked) namespaces.push(4, 5, 8, 9, 12, 13);
 
-            document.getElementById('user-pages-results').innerHTML = '<p>正在加载用户创建的页面，请稍候...</p>';
-            loadUserCreatedPages(username, dateLimit, namespaces);
+            // 检查是否需要封禁用户
+            const shouldBanUser = document.getElementById('ban-user-checkbox').checked;
+            
+            if (shouldBanUser) {
+                // 获取封禁参数
+                const banReason = document.getElementById('ban-reason').value;
+                const banDuration = document.getElementById('ban-duration').value;
+                const autoBlock = document.getElementById('ban-autoblock').checked;
+                const disallowTalkPage = document.getElementById('ban-talk-page').checked;
+                
+                // 显示封禁状态
+                document.getElementById('user-pages-results').innerHTML = '<p>正在封禁用户 ' + username + '，请稍候...</p>';
+                
+                // 执行封禁
+                banUser(username, banReason, banDuration, autoBlock, disallowTalkPage, function(success, message) {
+                    if (success) {
+                        document.getElementById('user-pages-results').innerHTML = '<div style="color: #3c763d; margin-bottom: 15px;"><strong>✓ 用户 ' + username + ' 已成功封禁</strong></div>';
+                        // 封禁成功后加载页面
+                        loadUserCreatedPages(username, dateLimit, namespaces);
+                    } else {
+                        document.getElementById('user-pages-results').innerHTML = '<div style="color: #a94442; margin-bottom: 15px;"><strong>✗ 封禁用户 ' + username + ' 失败: ' + message + '</strong></div>';
+                    }
+                });
+            } else {
+                // 直接加载页面
+                document.getElementById('user-pages-results').innerHTML = '<p>正在加载用户创建的页面，请稍候...</p>';
+                loadUserCreatedPages(username, dateLimit, namespaces);
+            }
         });
+    }
+
+// 修改：封禁用户功能 - 修复参数传递问题
+function banUser(username, reason, duration, autoBlock, disallowTalkPage, callback) {
+    const api = new mw.Api();
+    
+    // 转换封禁期限为MediaWiki API接受的格式
+    const expiry = convertBanDurationToTimestamp(duration);
+    
+    // 执行封禁API调用 - 修复：将选项作为参数传递
+    api.postWithToken('csrf', {
+        action: 'block',
+        user: username,
+        reason: reason,
+        expiry: expiry,
+        format: 'json',
+        allowusertalk: disallowTalkPage ? undefined : true, // 阻止用户编辑自己的讨论页
+        autoblock: autoBlock ? true : undefined // 自动封禁最后使用的IP地址
+    })
+    .done(function(data) {
+        if (data.block) {
+            callback(true, '封禁成功');
+        } else {
+            callback(false, '封禁操作没有返回预期结果');
+        }
+    }).fail(function(code, result) {
+        callback(false, result.error ? result.error.info : code);
+    });
+}
+
+    // 新增：转换封禁期限为时间戳格式
+    function convertBanDurationToTimestamp(duration) {
+        // 如果是永久封禁，直接返回
+        if (duration === 'infinite') {
+            return 'infinite';
+        }
+
+        // 获取当前日期
+        const now = new Date();
+        
+        // 根据选择的选项计算到期日期
+        switch (duration) {
+            case '1 day':
+                now.setDate(now.getDate() + 1);
+                break;
+            case '3 days':
+                now.setDate(now.getDate() + 3);
+                break;
+            case '1 week':
+                now.setDate(now.getDate() + 7);
+                break;
+            case '2 weeks':
+                now.setDate(now.getDate() + 14);
+                break;
+            case '1 month':
+                now.setMonth(now.getMonth() + 1);
+                break;
+            case '3 months':
+                now.setMonth(now.getMonth() + 3);
+                break;
+            case '6 months':
+                now.setMonth(now.getMonth() + 6);
+                break;
+            case '1 year':
+                now.setFullYear(now.getFullYear() + 1);
+                break;
+            default:
+                // 如果无法识别选项，默认为一天
+                now.setDate(now.getDate() + 1);
+        }
+        
+        // 将日期格式化为MediaWiki API接受的格式：YYYY-MM-DDThh:mm:ssZ
+        return now.toISOString().replace(/\.\d+Z$/, 'Z');
     }
 
     // 加载用户创建的页面
