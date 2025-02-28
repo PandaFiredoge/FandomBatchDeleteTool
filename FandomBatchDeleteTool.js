@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         Fandom批量删除与保护工具
 // @author       PandaFiredoge
-// @version      2.3
-// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率，支持封禁用户
+// @version      3.0
+// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率，支持封禁用户和回退编辑，支持一键处理问题用户
 // @match        *://*.fandom.com/*/wiki/Special:*
+// @match        *://*.fandom.com/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
 // ==/UserScript==
@@ -88,6 +89,8 @@
                 <button id="load-prefix-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">加载前缀页面</button>
                 <button id="load-regex-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">正则匹配页面</button>
                 <button id="load-user-pages-button" style="padding: 8px 15px; background-color: #3a87ad; color: white; border: none; border-radius: 3px; cursor: pointer;">用户创建的页面</button>
+                <button id="rollback-user-button" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer;">回退用户编辑</button>
+                <button id="manage-user-button" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;">一键处理用户</button>
                 <button id="preview-button" style="padding: 8px 15px; background-color: #5bc0de; color: white; border: none; border-radius: 3px; cursor: pointer;">预览页面列表</button>
                 <button id="delete-button" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer;">开始删除</button>
             </div>
@@ -127,6 +130,8 @@
         document.getElementById('load-prefix-button').addEventListener('click', showPrefixModal);
         document.getElementById('load-regex-button').addEventListener('click', showRegexModal);
         document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal); 
+        document.getElementById('rollback-user-button').addEventListener('click', showRollbackModal);
+        document.getElementById('manage-user-button').addEventListener('click', showManageUserModal); // 新增一键处理用户按钮事件
         document.getElementById('modal-close').addEventListener('click', closeModal);
 
         // 添加保护选项切换功能
@@ -151,7 +156,7 @@
         addStyles();
     }
 
-    // 添加CSS样式
+    // 添加 CSS 样式，保持原有代码，添加一些新的样式
     function addStyles() {
         const style = document.createElement('style');
         style.textContent = `
@@ -212,7 +217,6 @@
                 overflow-y: auto;
             }
             
-            /* 新增样式 */
             .rate-control {
                 display: flex;
                 align-items: center;
@@ -229,7 +233,6 @@
                 text-align: center;
             }
             
-            /* 封禁选项样式 */
             .ban-options {
                 margin-top: 15px;
                 padding: 10px;
@@ -241,6 +244,140 @@
             .ban-options.disabled {
                 opacity: 0.5;
                 pointer-events: none;
+            }
+
+            .edit-item {
+                padding: 8px;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .edit-item:hover {
+                background-color: #f9f9f9;
+            }
+            
+            .edit-info {
+                flex: 1;
+            }
+            
+            .tab-container {
+                margin-bottom: 15px;
+            }
+            
+            .tab-header {
+                display: flex;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            .tab {
+                padding: 8px 15px;
+                background-color: #f5f5f5;
+                cursor: pointer;
+                border: 1px solid #ddd;
+                border-bottom: none;
+                margin-right: 5px;
+                border-top-left-radius: 3px;
+                border-top-right-radius: 3px;
+            }
+            
+            .tab.active {
+                background-color: white;
+                border-bottom: 1px solid white;
+                margin-bottom: -1px;
+            }
+            
+            .tab-content {
+                display: none;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-top: none;
+            }
+            
+            .tab-content.active {
+                display: block;
+            }
+            
+            .rollback-options {
+                margin-top: 15px;
+                padding: 10px;
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 4px;
+            }
+            
+            /* 一键处理用户相关样式 */
+            .manage-user-options {
+                margin-top: 15px;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 4px;
+            }
+            
+            .manage-user-section {
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+                border-bottom: 1px dashed #ddd;
+            }
+            
+            .manage-user-section:last-child {
+                border-bottom: none;
+            }
+            
+            .manage-user-section h4 {
+                margin-top: 0;
+                margin-bottom: 10px;
+                color: #333;
+            }
+            
+            .progress-step {
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+            
+            .progress-indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            
+            .progress-step.active .progress-indicator {
+                background-color: #5bc0de;
+                color: white;
+                border-color: #5bc0de;
+            }
+            
+            .progress-step.completed .progress-indicator {
+                background-color: #5cb85c;
+                color: white;
+                border-color: #5cb85c;
+            }
+            
+            .progress-step.error .progress-indicator {
+                background-color: #d9534f;
+                color: white;
+                border-color: #d9534f;
+            }
+            
+            .progress-label {
+                flex: 1;
+            }
+            
+            .progress-status {
+                font-style: italic;
+                color: #666;
+                font-size: 0.9em;
             }
         `;
         document.head.appendChild(style);
@@ -289,7 +426,7 @@
         document.getElementById('modal-container').style.display = 'none';
     }
 
-    // 添加折叠区域的事件监听器 - 新函数
+    // 添加折叠区域的事件监听器
     function addCollapsibleSectionsEventListeners() {
         document.querySelectorAll('.collapsible-header').forEach(header => {
             // 移除现有事件监听器防止重复
@@ -299,7 +436,7 @@
         });
     }
 
-    // 切换折叠区域 - 新函数
+    // 切换折叠区域
     function toggleCollapsibleSection() {
         const section = this.parentElement;
         section.classList.toggle('collapsed');
@@ -322,6 +459,606 @@
                 </div>
             </div>
         `;
+    }
+
+    // 新增：显示一键处理用户模态框
+    function showManageUserModal() {
+        const content = `
+            <div style="margin-bottom: 15px;">
+                <label for="manage-username">用户名：</label>
+                <input type="text" id="manage-username" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" placeholder="输入要处理的用户名（不含User:前缀）">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="manage-date-limit">时间限制（可选）：</label>
+                <input type="date" id="manage-date-limit" style="padding: 8px; margin-top: 5px; border: 1px solid #ddd;">
+                <small style="display: block; margin-top: 5px; color: #666;">只处理此日期之后的操作。留空表示处理所有内容。</small>
+            </div>
+
+            <div class="manage-user-options">
+                <div class="manage-user-section">
+                    <h4>封禁设置</h4>
+                    <div style="margin-bottom: 10px;">
+                        <label for="manage-ban-reason">封禁原因：</label>
+                        <input type="text" id="manage-ban-reason" value="破坏行为" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label for="manage-ban-duration">封禁期限：</label>
+                        <select id="manage-ban-duration" style="padding: 5px;">
+                            <option value="1 day">1天</option>
+                            <option value="3 days">3天</option>
+                            <option value="1 week">1周</option>
+                            <option value="2 weeks">2周</option>
+                            <option value="1 month">1个月</option>
+                            <option value="3 months">3个月</option>
+                            <option value="6 months">6个月</option>
+                            <option value="1 year">1年</option>
+                            <option value="infinite" selected>永久</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="manage-ban-autoblock" checked style="margin-right: 5px;">
+                        <label for="manage-ban-autoblock">自动封禁最后使用的IP地址</label>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="manage-ban-talk-page" style="margin-right: 5px;">
+                        <label for="manage-ban-talk-page">阻止用户编辑自己的讨论页</label>
+                    </div>
+                </div>
+
+                <div class="manage-user-section">
+                    <h4>回退设置</h4>
+                    <div style="margin-bottom: 10px;">
+                        <label for="manage-rollback-reason">回退原因：</label>
+                        <input type="text" id="manage-rollback-reason" value="回退破坏性编辑" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label for="manage-rollback-limit">最大回退数量：</label>
+                        <input type="number" id="manage-rollback-limit" value="200" min="1" max="500" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                        <small style="display: block; margin-top: 5px; color: #666;">建议不超过200，以避免API限制</small>
+                    </div>
+                </div>
+
+                <div class="manage-user-section">
+                    <h4>删除设置</h4>
+                    <div style="margin-bottom: 10px;">
+                        <label for="manage-delete-reason">删除原因：</label>
+                        <input type="text" id="manage-delete-reason" value="清理破坏内容" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="manage-protect-pages" checked style="margin-right: 5px;">
+                        <label for="manage-protect-pages">删除后保护页面</label>
+                    </div>
+                    
+                    <div id="manage-protection-options" style="margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px;">
+                        <div style="margin-bottom: 10px;">
+                            <label for="manage-protection-level">保护级别：</label>
+                            <select id="manage-protection-level" style="padding: 5px;">
+                                <option value="sysop" selected>仅管理员</option>
+                                <option value="autoconfirmed">仅自动确认用户</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="manage-protection-reason">保护原因：</label>
+                            <input type="text" id="manage-protection-reason" value="防止重建" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <label for="manage-protection-expiry">保护期限：</label>
+                            <select id="manage-protection-expiry" style="padding: 5px;">
+                                <option value="1 week">1周</option>
+                                <option value="1 month">1个月</option>
+                                <option value="3 months">3个月</option>
+                                <option value="6 months">6个月</option>
+                                <option value="1 year">1年</option>
+                                <option value="infinite" selected>永久</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            ${createCollapsibleSection('命名空间选项', `
+                <div style="margin-top: 5px;">
+                    <input type="checkbox" id="manage-namespace-main" checked>
+                    <label for="manage-namespace-main">主命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="manage-namespace-user">
+                    <label for="manage-namespace-user">用户命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="manage-namespace-template">
+                    <label for="manage-namespace-template">模板命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="manage-namespace-category">
+                    <label for="manage-namespace-category">分类命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="manage-namespace-file">
+                    <label for="manage-namespace-file">文件命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="manage-namespace-other">
+                    <label for="manage-namespace-other">其他命名空间</label>
+                </div>
+            `, true)}
+
+            <button id="start-manage-user-button" style="padding: 8px 15px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer; margin-top: 15px; font-weight: bold;">开始处理用户</button>
+        `;
+
+        showModal('一键处理用户', content);
+
+        // 添加保护选项切换功能
+        document.getElementById('manage-protect-pages').addEventListener('change', function() {
+            document.getElementById('manage-protection-options').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // 添加开始处理按钮事件
+        document.getElementById('start-manage-user-button').addEventListener('click', function() {
+            const username = document.getElementById('manage-username').value.trim();
+            if (!username) {
+                showMessage('请输入有效的用户名', 'error');
+                return;
+            }
+
+            // 获取所有设置
+            const settings = {
+                username: username,
+                dateLimit: document.getElementById('manage-date-limit').value,
+                
+                // 封禁设置
+                ban: {
+                    reason: document.getElementById('manage-ban-reason').value,
+                    duration: document.getElementById('manage-ban-duration').value,
+                    autoBlock: document.getElementById('manage-ban-autoblock').checked,
+                    disallowTalkPage: document.getElementById('manage-ban-talk-page').checked
+                },
+                
+                // 回退设置
+                rollback: {
+                    reason: document.getElementById('manage-rollback-reason').value,
+                    limit: parseInt(document.getElementById('manage-rollback-limit').value) || 200
+                },
+                
+                // 删除设置
+                deletion: {
+                    reason: document.getElementById('manage-delete-reason').value,
+                    protect: document.getElementById('manage-protect-pages').checked,
+                    protection: {
+                        level: document.getElementById('manage-protection-level').value,
+                        reason: document.getElementById('manage-protection-reason').value,
+                        expiry: document.getElementById('manage-protection-expiry').value
+                    }
+                },
+                
+                // 命名空间设置
+                namespaces: []
+            };
+            
+            // 获取选中的命名空间
+            if (document.getElementById('manage-namespace-main').checked) settings.namespaces.push(0);
+            if (document.getElementById('manage-namespace-user').checked) settings.namespaces.push(2, 3);
+            if (document.getElementById('manage-namespace-template').checked) settings.namespaces.push(10, 11);
+            if (document.getElementById('manage-namespace-category').checked) settings.namespaces.push(14, 15);
+            if (document.getElementById('manage-namespace-file').checked) settings.namespaces.push(6, 7);
+            if (document.getElementById('manage-namespace-other').checked) settings.namespaces.push(4, 5, 8, 9, 12, 13);
+
+            // 确认对话框
+            if (confirm(`您即将对用户 "${username}" 执行以下操作：\n1. 封禁用户\n2. 回退用户编辑\n3. 删除用户创建的页面\n\n是否继续？`)) {
+                // 关闭模态框
+                closeModal();
+                
+                // 开始处理用户
+                startManageUser(settings);
+            }
+        });
+    }
+
+    // 新增：开始处理用户
+    function startManageUser(settings) {
+        // 显示进度条
+        const statusContainer = document.getElementById('deletion-status');
+        statusContainer.style.display = 'block';
+        
+        const progressElement = document.getElementById('progress');
+        const progressTextElement = document.getElementById('progress-text');
+        const resultsElement = document.getElementById('deletion-results');
+        
+        // 重置进度条
+        progressElement.style.width = '0%';
+        
+        // 清空结果区
+        resultsElement.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <h4>处理用户：${settings.username}</h4>
+                <div id="manage-user-progress">
+                    <div class="progress-step" id="step-ban">
+                        <div class="progress-indicator">1</div>
+                        <div class="progress-label">封禁用户</div>
+                        <div class="progress-status">等待中...</div>
+                    </div>
+                    <div class="progress-step" id="step-rollback">
+                        <div class="progress-indicator">2</div>
+                        <div class="progress-label">回退编辑</div>
+                        <div class="progress-status">等待中...</div>
+                    </div>
+                    <div class="progress-step" id="step-delete">
+                        <div class="progress-indicator">3</div>
+                        <div class="progress-label">删除创建的页面</div>
+                        <div class="progress-status">等待中...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="manage-user-details"></div>
+        `;
+        
+        progressTextElement.textContent = `正在处理用户：${settings.username}`;
+        
+        // 获取自定义处理速率
+        const processingRate = parseFloat(document.getElementById('processing-rate').value) * 1000; // 转换为毫秒
+        
+        // 开始执行步骤 1：封禁用户
+        executeManageUserStep1_Ban(settings, processingRate);
+    }
+
+    // 执行步骤 1：封禁用户
+    function executeManageUserStep1_Ban(settings, processingRate) {
+        // 更新步骤状态
+        updateStepStatus('step-ban', 'active', '正在封禁用户...');
+        
+        const detailsContainer = document.getElementById('manage-user-details');
+        detailsContainer.innerHTML += `<div style="margin-top: 10px;"><strong>正在封禁用户 ${settings.username}...</strong></div>`;
+        
+        // 执行封禁API调用
+        banUser(
+            settings.username, 
+            settings.ban.reason, 
+            settings.ban.duration, 
+            settings.ban.autoBlock, 
+            settings.ban.disallowTalkPage, 
+            function(success, message) {
+                if (success) {
+                    updateStepStatus('step-ban', 'completed', '用户已封禁');
+                    detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 用户 ${settings.username} 已成功封禁</div>`;
+                } else {
+                    updateStepStatus('step-ban', 'error', '封禁失败');
+                    detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 封禁用户 ${settings.username} 失败: ${message}</div>`;
+                }
+                
+                // 继续执行步骤 2：加载并回退用户编辑
+                setTimeout(function() {
+                    executeManageUserStep2_Rollback(settings, processingRate);
+                }, 1000); // 延迟1秒继续
+            }
+        );
+    }
+
+    // 执行步骤 2：加载并回退用户编辑
+    function executeManageUserStep2_Rollback(settings, processingRate) {
+        // 更新步骤状态
+        updateStepStatus('step-rollback', 'active', '正在加载用户编辑...');
+        
+        const detailsContainer = document.getElementById('manage-user-details');
+        detailsContainer.innerHTML += `<div style="margin-top: 15px;"><strong>正在加载用户 ${settings.username} 的编辑...</strong></div>`;
+        
+        // 加载用户编辑
+        const api = new mw.Api();
+        
+        // 构建参数
+        let params = {
+            action: 'query',
+            list: 'usercontribs',
+            ucuser: settings.username,
+            uclimit: Math.min(settings.rollback.limit, 500), // API限制通常为500
+            ucprop: 'title|timestamp|comment|ids',
+            format: 'json'
+        };
+
+        // 添加日期限制
+        if (settings.dateLimit) {
+            params.ucend = settings.dateLimit + 'T00:00:00Z'; // 转换为ISO格式
+        }
+        
+        // 添加命名空间限制
+        if (settings.namespaces && settings.namespaces.length > 0) {
+            params.ucnamespace = settings.namespaces.join('|');
+        }
+
+        // 保存找到的编辑
+        const userEdits = [];
+
+        // 获取用户编辑记录
+        api.get(params).done(function(data) {
+            if (data.query && data.query.usercontribs && data.query.usercontribs.length > 0) {
+                data.query.usercontribs.forEach(function(contrib) {
+                    userEdits.push({
+                        title: contrib.title,
+                        revid: contrib.revid,
+                        timestamp: contrib.timestamp,
+                        comment: contrib.comment
+                    });
+                });
+                
+                detailsContainer.innerHTML += `<div>找到 ${userEdits.length} 个编辑，准备回退...</div>`;
+                
+                // 显示进度
+                updateStepStatus('step-rollback', 'active', `找到 ${userEdits.length} 个编辑`);
+                
+                // 开始回退编辑
+                processManageUserRollback(userEdits, settings, 0, processingRate);
+            } else {
+                // 没有找到编辑
+                detailsContainer.innerHTML += `<div>未找到用户 ${settings.username} 的编辑，跳过回退步骤。</div>`;
+                updateStepStatus('step-rollback', 'completed', '无编辑需回退');
+                
+                // 继续执行步骤 3：加载并删除用户创建的页面
+                setTimeout(function() {
+                    executeManageUserStep3_Delete(settings, processingRate);
+                }, 1000); // 延迟1秒继续
+            }
+        }).fail(function(code, result) {
+            // 加载编辑失败
+            detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 加载用户编辑失败: ${result.error ? result.error.info : code}</div>`;
+            updateStepStatus('step-rollback', 'error', '加载编辑失败');
+            
+            // 继续执行步骤 3
+            setTimeout(function() {
+                executeManageUserStep3_Delete(settings, processingRate);
+            }, 1000); // 延迟1秒继续
+        });
+    }
+
+    // 处理用户回退过程
+    function processManageUserRollback(edits, settings, index, processingRate) {
+        const detailsContainer = document.getElementById('manage-user-details');
+        
+        if (index >= edits.length) {
+            // 所有编辑处理完毕
+            updateStepStatus('step-rollback', 'completed', `已回退 ${edits.length} 个编辑`);
+            detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 已完成所有编辑的回退</div>`;
+            
+            // 继续执行步骤 3：加载并删除用户创建的页面
+            setTimeout(function() {
+                executeManageUserStep3_Delete(settings, processingRate);
+            }, 1000); // 延迟1秒继续
+            return;
+        }
+
+        const edit = edits[index];
+        const progressElement = document.getElementById('progress');
+        
+        // 更新进度
+        const progressPercentage = Math.round((index / edits.length) * 33); // 回退占总进度的33%
+        progressElement.style.width = progressPercentage + '%';
+        
+        // 更新步骤状态
+        updateStepStatus('step-rollback', 'active', `正在回退 ${index + 1}/${edits.length}`);
+        
+        // 执行回退API调用
+        rollbackEdit(edit.title, settings.username, settings.rollback.reason, function(success, message) {
+            // 添加结果到列表
+            if (success) {
+                detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 成功回退: ${edit.title}</div>`;
+            } else {
+                detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 回退失败: ${edit.title} - ${message}</div>`;
+            }
+
+            // 使用自定义速率延迟继续下一个
+            setTimeout(function() {
+                processManageUserRollback(edits, settings, index + 1, processingRate);
+            }, processingRate);
+        });
+    }
+
+    // 执行步骤 3：加载并删除用户创建的页面
+    function executeManageUserStep3_Delete(settings, processingRate) {
+        // 更新步骤状态
+        updateStepStatus('step-delete', 'active', '正在加载用户创建的页面...');
+        
+        const detailsContainer = document.getElementById('manage-user-details');
+        detailsContainer.innerHTML += `<div style="margin-top: 15px;"><strong>正在加载用户 ${settings.username} 创建的页面...</strong></div>`;
+        
+        // 加载用户创建的页面
+        const api = new mw.Api();
+        
+        // 构建参数
+        let params = {
+            action: 'query',
+            list: 'usercontribs',
+            ucuser: settings.username,
+            uclimit: 500,
+            ucprop: 'title|timestamp',
+            ucshow: 'new', // 只显示创建新页面的贡献
+            format: 'json'
+        };
+
+        // 添加日期限制
+        if (settings.dateLimit) {
+            params.ucend = settings.dateLimit + 'T00:00:00Z'; // 转换为ISO格式
+        }
+        
+        // 添加命名空间限制
+        if (settings.namespaces && settings.namespaces.length > 0) {
+            params.ucnamespace = settings.namespaces.join('|');
+        }
+
+        // 保存找到的页面
+        const userPages = [];
+
+        // 递归函数获取所有页面
+        function getUserPages(continueParam) {
+            if (continueParam) {
+                // 添加continue参数
+                for (let prop in continueParam) {
+                    params[prop] = continueParam[prop];
+                }
+            }
+
+            api.get(params).done(function(data) {
+                if (data.query && data.query.usercontribs) {
+                    data.query.usercontribs.forEach(function(contrib) {
+                        userPages.push({
+                            title: contrib.title,
+                            timestamp: contrib.timestamp
+                        });
+                    });
+                    
+                    // 更新状态信息
+                    detailsContainer.innerHTML += `<div>已找到 ${userPages.length} 个页面，继续搜索...</div>`;
+
+                    // 如果有更多结果，继续查询
+                    if (data.continue) {
+                        getUserPages(data.continue);
+                    } else {
+                        // 完成所有查询
+                        if (userPages.length > 0) {
+                            detailsContainer.innerHTML += `<div>共找到 ${userPages.length} 个页面，准备删除...</div>`;
+                            updateStepStatus('step-delete', 'active', `找到 ${userPages.length} 个页面`);
+                            
+                            // 开始删除页面
+                            processManageUserDeletion(userPages, settings, 0, processingRate);
+                        } else {
+                            // 没有找到页面
+                            detailsContainer.innerHTML += `<div>未找到用户 ${settings.username} 创建的页面，流程完成。</div>`;
+                            updateStepStatus('step-delete', 'completed', '无页面需删除');
+                            completeManageUserProcess(settings);
+                        }
+                    }
+                } else {
+                    // 没有找到贡献
+                    if (userPages.length === 0) {
+                        detailsContainer.innerHTML += `<div>未找到用户 ${settings.username} 创建的页面，流程完成。</div>`;
+                        updateStepStatus('step-delete', 'completed', '无页面需删除');
+                        completeManageUserProcess(settings);
+                    } else {
+                        detailsContainer.innerHTML += `<div>共找到 ${userPages.length} 个页面，准备删除...</div>`;
+                        updateStepStatus('step-delete', 'active', `找到 ${userPages.length} 个页面`);
+                        processManageUserDeletion(userPages, settings, 0, processingRate);
+                    }
+                }
+            }).fail(function(code, result) {
+                // 加载页面失败
+                detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 加载用户创建的页面失败: ${result.error ? result.error.info : code}</div>`;
+                updateStepStatus('step-delete', 'error', '加载页面失败');
+                completeManageUserProcess(settings);
+            });
+        }
+
+        // 开始查询
+        getUserPages();
+    }
+
+    // 处理用户页面删除过程
+    function processManageUserDeletion(pages, settings, index, processingRate) {
+        const detailsContainer = document.getElementById('manage-user-details');
+        
+        if (index >= pages.length) {
+            // 所有页面处理完毕
+            updateStepStatus('step-delete', 'completed', `已删除 ${pages.length} 个页面`);
+            detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 已完成所有页面的删除</div>`;
+            completeManageUserProcess(settings);
+            return;
+        }
+
+        const page = pages[index].title;
+        const progressElement = document.getElementById('progress');
+        
+        // 更新进度
+        // 将进度范围设为33%-100%（前33%由回退步骤占据）
+        const progressPercentage = 33 + Math.round((index / pages.length) * 67);
+        progressElement.style.width = progressPercentage + '%';
+        
+        // 更新步骤状态
+        updateStepStatus('step-delete', 'active', `正在删除 ${index + 1}/${pages.length}`);
+        
+        // 准备保护参数
+        let protectionParams = null;
+        if (settings.deletion.protect) {
+            protectionParams = {
+                level: settings.deletion.protection.level,
+                expiry: convertExpiryToTimestamp(settings.deletion.protection.expiry),
+                reason: settings.deletion.protection.reason
+            };
+        }
+        
+        // 执行删除API调用
+        const api = new mw.Api();
+        api.postWithToken('csrf', {
+            action: 'delete',
+            title: page,
+            reason: settings.deletion.reason,
+            format: 'json'
+        }).done(function() {
+            // 删除成功
+            detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 成功删除: ${page}</div>`;
+
+            // 如果需要保护页面
+            if (protectionParams) {
+                protectDeletedPage(page, protectionParams, {
+                    onSuccess: function() {
+                        detailsContainer.innerHTML += `<div style="color: #3a87ad;">🔒 成功保护: ${page}</div>`;
+                    },
+                    onFail: function(message) {
+                        detailsContainer.innerHTML += `<div style="color: #8a6d3b;">⚠ 保护失败: ${page} - ${message}</div>`;
+                    }
+                });
+            }
+
+            // 使用自定义速率延迟继续下一个
+            setTimeout(function() {
+                processManageUserDeletion(pages, settings, index + 1, processingRate);
+            }, processingRate);
+        }).fail(function(code, result) {
+            // 删除失败
+            detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 删除失败: ${page} - ${result.error ? result.error.info : code}</div>`;
+
+            // 使用自定义速率延迟继续下一个
+            setTimeout(function() {
+                processManageUserDeletion(pages, settings, index + 1, processingRate);
+            }, processingRate);
+        });
+    }
+
+    // 完成用户处理流程
+    function completeManageUserProcess(settings) {
+        const progressElement = document.getElementById('progress');
+        const progressTextElement = document.getElementById('progress-text');
+        const detailsContainer = document.getElementById('manage-user-details');
+        
+        // 设置进度为100%
+        progressElement.style.width = '100%';
+        progressTextElement.textContent = `用户 ${settings.username} 处理完成!`;
+        
+        // 添加总结信息
+        detailsContainer.innerHTML += `
+            <div style="margin-top: 20px; padding: 10px; background-color: #dff0d8; border: 1px solid #d6e9c6; border-radius: 4px; color: #3c763d;">
+                <strong>用户 ${settings.username} 处理完成!</strong><br>
+                所有操作已执行结束。
+            </div>
+        `;
+        
+        // 提示消息
+        showMessage(`用户 ${settings.username} 处理完成!`, 'success');
+    }
+
+    // 更新步骤状态
+    function updateStepStatus(stepId, status, statusText) {
+        const stepElement = document.getElementById(stepId);
+        
+        // 移除所有状态类
+        stepElement.classList.remove('active', 'completed', 'error');
+        
+        // 添加当前状态类
+        stepElement.classList.add(status);
+        
+        // 更新状态文本
+        stepElement.querySelector('.progress-status').textContent = statusText;
     }
 
     // 显示用户页面模态框
@@ -471,35 +1208,341 @@
         });
     }
 
-// 修改：封禁用户功能 - 修复参数传递问题
-function banUser(username, reason, duration, autoBlock, disallowTalkPage, callback) {
-    const api = new mw.Api();
-    
-    // 转换封禁期限为MediaWiki API接受的格式
-    const expiry = convertBanDurationToTimestamp(duration);
-    
-    // 执行封禁API调用 - 修复：将选项作为参数传递
-    api.postWithToken('csrf', {
-        action: 'block',
-        user: username,
-        reason: reason,
-        expiry: expiry,
-        format: 'json',
-        allowusertalk: disallowTalkPage ? undefined : true, // 阻止用户编辑自己的讨论页
-        autoblock: autoBlock ? true : undefined // 自动封禁最后使用的IP地址
-    })
-    .done(function(data) {
-        if (data.block) {
-            callback(true, '封禁成功');
-        } else {
-            callback(false, '封禁操作没有返回预期结果');
-        }
-    }).fail(function(code, result) {
-        callback(false, result.error ? result.error.info : code);
-    });
-}
+    // 显示回退用户编辑模态框
+    function showRollbackModal() {
+        const content = `
+            <div style="margin-bottom: 15px;">
+                <label for="rollback-username">用户名：</label>
+                <input type="text" id="rollback-username" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" placeholder="输入要回退编辑的用户名（不含User:前缀）">
+            </div>
 
-    // 新增：转换封禁期限为时间戳格式
+            <div style="margin-bottom: 15px;">
+                <label for="rollback-date-limit">时间限制（可选）：</label>
+                <input type="date" id="rollback-date-limit" style="padding: 8px; margin-top: 5px; border: 1px solid #ddd;">
+                <small style="display: block; margin-top: 5px; color: #666;">只加载此日期之后的编辑。留空表示加载所有编辑。</small>
+            </div>
+
+            <div class="rollback-options" style="margin-top: 15px; margin-bottom: 15px;">
+                <div style="margin-bottom: 10px;">
+                    <label for="rollback-reason">回退原因：</label>
+                    <input type="text" id="rollback-reason" value="回退破坏性编辑" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                </div>
+                
+                <div style="margin-bottom: 10px;">
+                    <label for="rollback-limit">最大处理数量：</label>
+                    <input type="number" id="rollback-limit" value="100" min="1" max="500" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
+                    <small style="display: block; margin-top: 5px; color: #666;">建议不超过200，以避免API限制</small>
+                </div>
+            </div>
+
+            ${createCollapsibleSection('命名空间选项', `
+                <div style="margin-top: 5px;">
+                    <input type="checkbox" id="rollback-namespace-main" checked>
+                    <label for="rollback-namespace-main">主命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="rollback-namespace-user">
+                    <label for="rollback-namespace-user">用户命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="rollback-namespace-template">
+                    <label for="rollback-namespace-template">模板命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="rollback-namespace-category">
+                    <label for="rollback-namespace-category">分类命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="rollback-namespace-file">
+                    <label for="rollback-namespace-file">文件命名空间</label>
+                </div>
+                <div>
+                    <input type="checkbox" id="rollback-namespace-other">
+                    <label for="rollback-namespace-other">其他命名空间</label>
+                </div>
+            `, true)}
+
+            <button id="load-user-edits-button" style="padding: 8px 15px; background-color: #5bc0de; color: white; border: none; border-radius: 3px; cursor: pointer; margin-top: 15px;">加载用户编辑</button>
+
+            <div id="rollback-results" style="margin-top: 15px;"></div>
+        `;
+
+        showModal('回退用户编辑', content);
+
+        document.getElementById('load-user-edits-button').addEventListener('click', function() {
+            const username = document.getElementById('rollback-username').value.trim();
+            if (!username) {
+                showMessage('请输入有效的用户名', 'error');
+                return;
+            }
+
+            const dateLimit = document.getElementById('rollback-date-limit').value;
+            const limit = parseInt(document.getElementById('rollback-limit').value) || 100;
+            
+            // 获取选中的命名空间
+            const namespaces = [];
+            if (document.getElementById('rollback-namespace-main').checked) namespaces.push(0);
+            if (document.getElementById('rollback-namespace-user').checked) namespaces.push(2, 3);
+            if (document.getElementById('rollback-namespace-template').checked) namespaces.push(10, 11);
+            if (document.getElementById('rollback-namespace-category').checked) namespaces.push(14, 15);
+            if (document.getElementById('rollback-namespace-file').checked) namespaces.push(6, 7);
+            if (document.getElementById('rollback-namespace-other').checked) namespaces.push(4, 5, 8, 9, 12, 13);
+
+            document.getElementById('rollback-results').innerHTML = '<p>正在加载用户编辑，请稍候...</p>';
+            loadUserEdits(username, dateLimit, namespaces, limit);
+        });
+    }
+
+    // 加载用户编辑
+    function loadUserEdits(username, dateLimit, namespaces, limit) {
+        const api = new mw.Api();
+        const resultContainer = document.getElementById('rollback-results');
+        
+        // 构建参数
+        let params = {
+            action: 'query',
+            list: 'usercontribs',
+            ucuser: username,
+            uclimit: Math.min(limit, 500), // API限制通常为500
+            ucprop: 'title|timestamp|comment|ids',
+            format: 'json'
+        };
+
+        // 添加日期限制
+        if (dateLimit) {
+            params.ucend = dateLimit + 'T00:00:00Z'; // 转换为ISO格式
+        }
+        
+        // 添加命名空间限制
+        if (namespaces && namespaces.length > 0) {
+            params.ucnamespace = namespaces.join('|');
+        }
+
+        // 显示加载状态
+        resultContainer.innerHTML = '<p>正在查询用户编辑，这可能需要一些时间...</p>';
+
+        // 保存找到的编辑
+        const userEdits = [];
+
+        // 获取用户编辑记录
+        api.get(params).done(function(data) {
+            if (data.query && data.query.usercontribs) {
+                data.query.usercontribs.forEach(function(contrib) {
+                    userEdits.push({
+                        title: contrib.title,
+                        revid: contrib.revid,
+                        timestamp: contrib.timestamp,
+                        comment: contrib.comment
+                    });
+                });
+                
+                // 显示结果
+                displayUserEditsResults(username, userEdits);
+            } else {
+                // 没有找到贡献或出现错误
+                resultContainer.innerHTML = `<p>未找到用户 "${username}" 的编辑。</p>`;
+            }
+        }).fail(function(code, result) {
+            resultContainer.innerHTML = `<p>查询用户贡献失败: ${result.error ? result.error.info : code}</p>`;
+        });
+    }
+
+    // 显示用户编辑结果
+    function displayUserEditsResults(username, edits) {
+        const resultContainer = document.getElementById('rollback-results');
+
+        if (edits.length === 0) {
+            resultContainer.innerHTML = `<p>未找到用户 "${username}" 的编辑。</p>`;
+            return;
+        }
+
+        // 创建折叠区域的内容
+        let editsContent = `
+            <div style="margin-bottom: 10px;">
+                <input type="checkbox" id="select-all-edits" checked>
+                <label for="select-all-edits">全选/取消全选</label>
+            </div>
+            
+            <div class="page-list-container">
+        `;
+
+        edits.forEach((edit, index) => {
+            // 格式化时间戳为可读格式
+            const date = new Date(edit.timestamp);
+            const formattedDate = date.toLocaleString();
+            
+            // 处理可能为空的编辑摘要
+            const summary = edit.comment ? `(${edit.comment})` : '(无编辑摘要)';
+
+            editsContent += `
+                <div class="edit-item">
+                    <div class="edit-info">
+                        <input type="checkbox" id="edit-${index}" class="edit-checkbox" 
+                               data-title="${edit.title}" data-revid="${edit.revid}" checked>
+                        <label for="edit-${index}">${edit.title}</label>
+                        <small style="margin-left: 5px; color: #666;">${formattedDate} ${summary}</small>
+                    </div>
+                </div>
+            `;
+        });
+
+        editsContent += `</div>`;
+
+        // 创建固定底部的操作按钮
+        const actionButtons = `
+            <div class="action-buttons">
+                <button id="rollback-selected-button" style="padding: 6px 12px; background-color: #d9534f; color: white; border: none; border-radius: 3px; cursor: pointer;">回退选中编辑</button>
+            </div>
+        `;
+
+        // 组合内容
+        const html = `
+            <h4>找到 ${edits.length} 个由 "${username}" 进行的编辑：</h4>
+            ${createCollapsibleSection('编辑列表', editsContent)}
+            ${actionButtons}
+        `;
+
+        resultContainer.innerHTML = html;
+        
+        // 添加折叠区域的事件监听器
+        addCollapsibleSectionsEventListeners();
+
+        // 添加全选/取消全选功能
+        document.getElementById('select-all-edits').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('#rollback-results .edit-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+        });
+
+        // 添加回退功能
+        document.getElementById('rollback-selected-button').addEventListener('click', function() {
+            const selectedEdits = [];
+            document.querySelectorAll('#rollback-results .edit-checkbox:checked').forEach(cb => {
+                selectedEdits.push({
+                    title: cb.dataset.title,
+                    revid: cb.dataset.revid
+                });
+            });
+
+            if (selectedEdits.length === 0) {
+                showMessage('请至少选择一个编辑', 'error');
+                return;
+            }
+
+            // 获取回退原因
+            const reason = document.getElementById('rollback-reason').value;
+            
+            // 确认对话框
+            if (confirm(`您即将回退 ${selectedEdits.length} 个编辑。是否继续？`)) {
+                // 关闭模态框
+                closeModal();
+                
+                // 显示进度条
+                document.getElementById('deletion-status').style.display = 'block';
+                document.getElementById('progress').style.width = '0%';
+                document.getElementById('progress-text').textContent = '准备回退编辑...';
+                
+                // 清空结果区
+                const resultsElement = document.getElementById('deletion-results');
+                resultsElement.innerHTML = '';
+                
+                // 开始回退
+                const processingRate = parseFloat(document.getElementById('processing-rate').value) * 1000; // 转换为毫秒
+                processRollback(selectedEdits, username, 0, reason, processingRate);
+            }
+        });
+    }
+
+    // 处理回退流程
+    function processRollback(edits, username, index, reason, processingRate) {
+        if (index >= edits.length) {
+            // 所有编辑处理完毕
+            document.getElementById('progress-text').textContent = '完成! 回退操作已结束。';
+            return;
+        }
+
+        const edit = edits[index];
+        const progressElement = document.getElementById('progress');
+        const progressTextElement = document.getElementById('progress-text');
+        const resultsElement = document.getElementById('deletion-results');
+
+        // 更新进度
+        const progressPercentage = Math.round((index / edits.length) * 100);
+        progressElement.style.width = progressPercentage + '%';
+        progressTextElement.textContent = `正在回退: ${edit.title} (${index + 1}/${edits.length}, ${progressPercentage}%)`;
+
+        // 执行回退API调用
+        rollbackEdit(edit.title, username, reason, function(success, message) {
+            // 添加结果到列表
+            const resultItem = document.createElement('div');
+            if (success) {
+                resultItem.style.color = '#3c763d';
+                resultItem.textContent = `✓ 成功回退: ${edit.title}`;
+            } else {
+                resultItem.style.color = '#a94442';
+                resultItem.textContent = `✗ 回退失败: ${edit.title} - ${message}`;
+            }
+            resultsElement.appendChild(resultItem);
+
+            // 使用自定义速率延迟继续下一个
+            setTimeout(function() {
+                processRollback(edits, username, index + 1, reason, processingRate);
+            }, processingRate);
+        });
+    }
+
+    // 回退编辑实现
+    function rollbackEdit(title, user, reason, callback) {
+        const api = new mw.Api();
+        
+        // 使用postWithToken方法，但使用'rollback'令牌类型
+        api.postWithToken('rollback', {
+            action: 'rollback',
+            title: title,
+            user: user,
+            summary: reason,
+            format: 'json'
+        }).done(function(data) {
+            if (data.rollback) {
+                callback(true, '回退成功');
+            } else {
+                callback(false, '回退操作没有返回预期结果');
+            }
+        }).fail(function(code, result) {
+            callback(false, result.error ? result.error.info : code);
+        });
+    }
+
+    // 封禁用户功能
+    function banUser(username, reason, duration, autoBlock, disallowTalkPage, callback) {
+        const api = new mw.Api();
+        
+        // 转换封禁期限为MediaWiki API接受的格式
+        const expiry = convertBanDurationToTimestamp(duration);
+        
+        // 执行封禁API调用
+        api.postWithToken('csrf', {
+            action: 'block',
+            user: username,
+            reason: reason,
+            expiry: expiry,
+            format: 'json',
+            allowusertalk: disallowTalkPage ? undefined : true, // 阻止用户编辑自己的讨论页
+            autoblock: autoBlock ? true : undefined // 自动封禁最后使用的IP地址
+        })
+        .done(function(data) {
+            if (data.block) {
+                callback(true, '封禁成功');
+            } else {
+                callback(false, '封禁操作没有返回预期结果');
+            }
+        }).fail(function(code, result) {
+            callback(false, result.error ? result.error.info : code);
+        });
+    }
+
+    // 转换封禁期限为时间戳格式
     function convertBanDurationToTimestamp(duration) {
         // 如果是永久封禁，直接返回
         if (duration === 'infinite') {
@@ -1541,8 +2584,8 @@ function banUser(username, reason, duration, autoBlock, disallowTalkPage, callba
         });
     }
 
-    // 保护已删除的页面
-    function protectDeletedPage(page, protectionParams, resultsElement) {
+    // 保护已删除的页面 - 修改为支持新的回调方法
+    function protectDeletedPage(page, protectionParams, resultsElementOrCallbacks) {
         const api = new mw.Api();
         api.postWithToken('csrf', {
             action: 'protect',
@@ -1553,16 +2596,30 @@ function banUser(username, reason, duration, autoBlock, disallowTalkPage, callba
             format: 'json'
         }).done(function() {
             // 保护成功
-            const resultItem = document.createElement('div');
-            resultItem.style.color = '#3a87ad';
-            resultItem.textContent = '🔒 成功保护: ' + page;
-            resultsElement.appendChild(resultItem);
+            if (typeof resultsElementOrCallbacks === 'object' && resultsElementOrCallbacks.onSuccess) {
+                // 使用回调方法
+                resultsElementOrCallbacks.onSuccess();
+            } else {
+                // 使用传统DOM更新
+                const resultItem = document.createElement('div');
+                resultItem.style.color = '#3a87ad';
+                resultItem.textContent = '🔒 成功保护: ' + page;
+                resultsElementOrCallbacks.appendChild(resultItem);
+            }
         }).fail(function(code, result) {
             // 保护失败
-            const resultItem = document.createElement('div');
-            resultItem.style.color = '#8a6d3b';
-            resultItem.textContent = '⚠ 保护失败: ' + page + ' - ' + (result.error ? result.error.info : code);
-            resultsElement.appendChild(resultItem);
+            const errorMessage = result.error ? result.error.info : code;
+            
+            if (typeof resultsElementOrCallbacks === 'object' && resultsElementOrCallbacks.onFail) {
+                // 使用回调方法
+                resultsElementOrCallbacks.onFail(errorMessage);
+            } else {
+                // 使用传统DOM更新
+                const resultItem = document.createElement('div');
+                resultItem.style.color = '#8a6d3b';
+                resultItem.textContent = '⚠ 保护失败: ' + page + ' - ' + errorMessage;
+                resultsElementOrCallbacks.appendChild(resultItem);
+            }
         });
     }
 
