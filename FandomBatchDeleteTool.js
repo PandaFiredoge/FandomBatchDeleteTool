@@ -1,12 +1,21 @@
 // ==UserScript==
-// @name         Fandom批量删除与保护工具
+// @name         MediaWiki 批量管理工具
 // @author       PandaFiredoge
-// @version      3.0
-// @description  一个用于Fandom站点的批量删除页面并可选保护的工具，支持正则匹配页面标题和删除用户创建的页面，可自定义处理速率，支持封禁用户和回退编辑，支持一键处理问题用户
+// @version      4.0
+// @description  一个用于MediaWiki站点（包括Fandom, Miraheze, SkyWiki等）的批量删除、保护、用户管理工具。
 // @match        *://*.fandom.com/*/wiki/Special:*
 // @match        *://*.fandom.com/wiki/Special:*
+// @match        *://*.miraheze.org/wiki/Special:*
+// @match        *://*.miraheze.org/w/index.php*Special:*
+// @match        *://*.skywiki.org/wiki/Special:*
+// @match        *://*.skywiki.org/w/index.php*Special:*
+// @match        *://*/w/index.php*Special:*
+// @match        *://*/wiki/Special:*
 // @grant        none
 // @license      GPL-3.0-or-later
+// @namespace https://greasyfork.org/users/1413764
+// @downloadURL https://update.greasyfork.org/scripts/528156/Fandom%E6%89%B9%E9%87%8F%E5%88%A0%E9%99%A4%E4%B8%8E%E4%BF%9D%E6%8A%A4%E5%B7%A5%E5%85%B7.user.js
+// @updateURL https://update.greasyfork.org/scripts/528156/Fandom%E6%89%B9%E9%87%8F%E5%88%A0%E9%99%A4%E4%B8%8E%E4%BF%9D%E6%8A%A4%E5%B7%A5%E5%85%B7.meta.js
 // ==/UserScript==
 
 (function() {
@@ -129,7 +138,7 @@
         document.getElementById('load-category-button').addEventListener('click', showCategoryModal);
         document.getElementById('load-prefix-button').addEventListener('click', showPrefixModal);
         document.getElementById('load-regex-button').addEventListener('click', showRegexModal);
-        document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal); 
+        document.getElementById('load-user-pages-button').addEventListener('click', showUserPagesModal);
         document.getElementById('rollback-user-button').addEventListener('click', showRollbackModal);
         document.getElementById('manage-user-button').addEventListener('click', showManageUserModal); // 新增一键处理用户按钮事件
         document.getElementById('modal-close').addEventListener('click', closeModal);
@@ -165,7 +174,7 @@
                 border-radius: 4px;
                 margin-bottom: 15px;
             }
-            
+
             .collapsible-header {
                 padding: 10px;
                 background-color: #f5f5f5;
@@ -175,22 +184,22 @@
                 align-items: center;
                 font-weight: bold;
             }
-            
+
             .collapsible-header:hover {
                 background-color: #e9e9e9;
             }
-            
+
             .collapsible-content {
                 padding: 10px;
                 border-top: 1px solid #ddd;
                 max-height: 300px;
                 overflow-y: auto;
             }
-            
+
             .collapsed .collapsible-content {
                 display: none;
             }
-            
+
             .page-list-container {
                 max-height: 300px;
                 overflow-y: auto;
@@ -198,7 +207,7 @@
                 padding: 10px;
                 margin: 10px 0;
             }
-            
+
             .action-buttons {
                 position: sticky;
                 bottom: 0;
@@ -207,32 +216,32 @@
                 border-top: 1px solid #ddd;
                 margin-top: 10px;
             }
-            
+
             #modal-content {
                 display: flex;
                 flex-direction: column;
             }
-            
+
             #modal-body {
                 overflow-y: auto;
             }
-            
+
             .rate-control {
                 display: flex;
                 align-items: center;
                 margin-top: 15px;
             }
-            
+
             .rate-slider {
                 flex: 1;
                 margin: 0 10px;
             }
-            
+
             .rate-value {
                 width: 60px;
                 text-align: center;
             }
-            
+
             .ban-options {
                 margin-top: 15px;
                 padding: 10px;
@@ -240,7 +249,7 @@
                 border: 1px solid #f5c6cb;
                 border-radius: 4px;
             }
-            
+
             .ban-options.disabled {
                 opacity: 0.5;
                 pointer-events: none;
@@ -253,24 +262,24 @@
                 justify-content: space-between;
                 align-items: center;
             }
-            
+
             .edit-item:hover {
                 background-color: #f9f9f9;
             }
-            
+
             .edit-info {
                 flex: 1;
             }
-            
+
             .tab-container {
                 margin-bottom: 15px;
             }
-            
+
             .tab-header {
                 display: flex;
                 border-bottom: 1px solid #ddd;
             }
-            
+
             .tab {
                 padding: 8px 15px;
                 background-color: #f5f5f5;
@@ -281,24 +290,24 @@
                 border-top-left-radius: 3px;
                 border-top-right-radius: 3px;
             }
-            
+
             .tab.active {
                 background-color: white;
                 border-bottom: 1px solid white;
                 margin-bottom: -1px;
             }
-            
+
             .tab-content {
                 display: none;
                 padding: 15px;
                 border: 1px solid #ddd;
                 border-top: none;
             }
-            
+
             .tab-content.active {
                 display: block;
             }
-            
+
             .rollback-options {
                 margin-top: 15px;
                 padding: 10px;
@@ -306,7 +315,7 @@
                 border: 1px solid #e9ecef;
                 border-radius: 4px;
             }
-            
+
             /* 一键处理用户相关样式 */
             .manage-user-options {
                 margin-top: 15px;
@@ -315,29 +324,29 @@
                 border: 1px solid #e9ecef;
                 border-radius: 4px;
             }
-            
+
             .manage-user-section {
                 margin-bottom: 20px;
                 padding-bottom: 15px;
                 border-bottom: 1px dashed #ddd;
             }
-            
+
             .manage-user-section:last-child {
                 border-bottom: none;
             }
-            
+
             .manage-user-section h4 {
                 margin-top: 0;
                 margin-bottom: 10px;
                 color: #333;
             }
-            
+
             .progress-step {
                 display: flex;
                 align-items: center;
                 margin-bottom: 5px;
             }
-            
+
             .progress-indicator {
                 width: 20px;
                 height: 20px;
@@ -351,29 +360,29 @@
                 font-size: 12px;
                 font-weight: bold;
             }
-            
+
             .progress-step.active .progress-indicator {
                 background-color: #5bc0de;
                 color: white;
                 border-color: #5bc0de;
             }
-            
+
             .progress-step.completed .progress-indicator {
                 background-color: #5cb85c;
                 color: white;
                 border-color: #5cb85c;
             }
-            
+
             .progress-step.error .progress-indicator {
                 background-color: #d9534f;
                 color: white;
                 border-color: #d9534f;
             }
-            
+
             .progress-label {
                 flex: 1;
             }
-            
+
             .progress-status {
                 font-style: italic;
                 color: #666;
@@ -482,7 +491,7 @@
                         <label for="manage-ban-reason">封禁原因：</label>
                         <input type="text" id="manage-ban-reason" value="破坏行为" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
                     </div>
-                    
+
                     <div style="margin-bottom: 10px;">
                         <label for="manage-ban-duration">封禁期限：</label>
                         <select id="manage-ban-duration" style="padding: 5px;">
@@ -497,12 +506,12 @@
                             <option value="infinite" selected>永久</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <input type="checkbox" id="manage-ban-autoblock" checked style="margin-right: 5px;">
                         <label for="manage-ban-autoblock">自动封禁最后使用的IP地址</label>
                     </div>
-                    
+
                     <div>
                         <input type="checkbox" id="manage-ban-talk-page" style="margin-right: 5px;">
                         <label for="manage-ban-talk-page">阻止用户编辑自己的讨论页</label>
@@ -515,7 +524,7 @@
                         <label for="manage-rollback-reason">回退原因：</label>
                         <input type="text" id="manage-rollback-reason" value="回退破坏性编辑" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
                     </div>
-                    
+
                     <div style="margin-bottom: 10px;">
                         <label for="manage-rollback-limit">最大回退数量：</label>
                         <input type="number" id="manage-rollback-limit" value="200" min="1" max="500" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
@@ -529,12 +538,12 @@
                         <label for="manage-delete-reason">删除原因：</label>
                         <input type="text" id="manage-delete-reason" value="清理破坏内容" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
                     </div>
-                    
+
                     <div>
                         <input type="checkbox" id="manage-protect-pages" checked style="margin-right: 5px;">
                         <label for="manage-protect-pages">删除后保护页面</label>
                     </div>
-                    
+
                     <div id="manage-protection-options" style="margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px;">
                         <div style="margin-bottom: 10px;">
                             <label for="manage-protection-level">保护级别：</label>
@@ -611,7 +620,7 @@
             const settings = {
                 username: username,
                 dateLimit: document.getElementById('manage-date-limit').value,
-                
+
                 // 封禁设置
                 ban: {
                     reason: document.getElementById('manage-ban-reason').value,
@@ -619,13 +628,13 @@
                     autoBlock: document.getElementById('manage-ban-autoblock').checked,
                     disallowTalkPage: document.getElementById('manage-ban-talk-page').checked
                 },
-                
+
                 // 回退设置
                 rollback: {
                     reason: document.getElementById('manage-rollback-reason').value,
                     limit: parseInt(document.getElementById('manage-rollback-limit').value) || 200
                 },
-                
+
                 // 删除设置
                 deletion: {
                     reason: document.getElementById('manage-delete-reason').value,
@@ -636,11 +645,11 @@
                         expiry: document.getElementById('manage-protection-expiry').value
                     }
                 },
-                
+
                 // 命名空间设置
                 namespaces: []
             };
-            
+
             // 获取选中的命名空间
             if (document.getElementById('manage-namespace-main').checked) settings.namespaces.push(0);
             if (document.getElementById('manage-namespace-user').checked) settings.namespaces.push(2, 3);
@@ -653,7 +662,7 @@
             if (confirm(`您即将对用户 "${username}" 执行以下操作：\n1. 封禁用户\n2. 回退用户编辑\n3. 删除用户创建的页面\n\n是否继续？`)) {
                 // 关闭模态框
                 closeModal();
-                
+
                 // 开始处理用户
                 startManageUser(settings);
             }
@@ -665,14 +674,14 @@
         // 显示进度条
         const statusContainer = document.getElementById('deletion-status');
         statusContainer.style.display = 'block';
-        
+
         const progressElement = document.getElementById('progress');
         const progressTextElement = document.getElementById('progress-text');
         const resultsElement = document.getElementById('deletion-results');
-        
+
         // 重置进度条
         progressElement.style.width = '0%';
-        
+
         // 清空结果区
         resultsElement.innerHTML = `
             <div style="margin-bottom: 20px;">
@@ -697,12 +706,12 @@
             </div>
             <div id="manage-user-details"></div>
         `;
-        
+
         progressTextElement.textContent = `正在处理用户：${settings.username}`;
-        
+
         // 获取自定义处理速率
         const processingRate = parseFloat(document.getElementById('processing-rate').value) * 1000; // 转换为毫秒
-        
+
         // 开始执行步骤 1：封禁用户
         executeManageUserStep1_Ban(settings, processingRate);
     }
@@ -711,17 +720,17 @@
     function executeManageUserStep1_Ban(settings, processingRate) {
         // 更新步骤状态
         updateStepStatus('step-ban', 'active', '正在封禁用户...');
-        
+
         const detailsContainer = document.getElementById('manage-user-details');
         detailsContainer.innerHTML += `<div style="margin-top: 10px;"><strong>正在封禁用户 ${settings.username}...</strong></div>`;
-        
+
         // 执行封禁API调用
         banUser(
-            settings.username, 
-            settings.ban.reason, 
-            settings.ban.duration, 
-            settings.ban.autoBlock, 
-            settings.ban.disallowTalkPage, 
+            settings.username,
+            settings.ban.reason,
+            settings.ban.duration,
+            settings.ban.autoBlock,
+            settings.ban.disallowTalkPage,
             function(success, message) {
                 if (success) {
                     updateStepStatus('step-ban', 'completed', '用户已封禁');
@@ -730,7 +739,7 @@
                     updateStepStatus('step-ban', 'error', '封禁失败');
                     detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 封禁用户 ${settings.username} 失败: ${message}</div>`;
                 }
-                
+
                 // 继续执行步骤 2：加载并回退用户编辑
                 setTimeout(function() {
                     executeManageUserStep2_Rollback(settings, processingRate);
@@ -743,13 +752,13 @@
     function executeManageUserStep2_Rollback(settings, processingRate) {
         // 更新步骤状态
         updateStepStatus('step-rollback', 'active', '正在加载用户编辑...');
-        
+
         const detailsContainer = document.getElementById('manage-user-details');
         detailsContainer.innerHTML += `<div style="margin-top: 15px;"><strong>正在加载用户 ${settings.username} 的编辑...</strong></div>`;
-        
+
         // 加载用户编辑
         const api = new mw.Api();
-        
+
         // 构建参数
         let params = {
             action: 'query',
@@ -764,7 +773,7 @@
         if (settings.dateLimit) {
             params.ucend = settings.dateLimit + 'T00:00:00Z'; // 转换为ISO格式
         }
-        
+
         // 添加命名空间限制
         if (settings.namespaces && settings.namespaces.length > 0) {
             params.ucnamespace = settings.namespaces.join('|');
@@ -784,19 +793,19 @@
                         comment: contrib.comment
                     });
                 });
-                
+
                 detailsContainer.innerHTML += `<div>找到 ${userEdits.length} 个编辑，准备回退...</div>`;
-                
+
                 // 显示进度
                 updateStepStatus('step-rollback', 'active', `找到 ${userEdits.length} 个编辑`);
-                
+
                 // 开始回退编辑
                 processManageUserRollback(userEdits, settings, 0, processingRate);
             } else {
                 // 没有找到编辑
                 detailsContainer.innerHTML += `<div>未找到用户 ${settings.username} 的编辑，跳过回退步骤。</div>`;
                 updateStepStatus('step-rollback', 'completed', '无编辑需回退');
-                
+
                 // 继续执行步骤 3：加载并删除用户创建的页面
                 setTimeout(function() {
                     executeManageUserStep3_Delete(settings, processingRate);
@@ -806,7 +815,7 @@
             // 加载编辑失败
             detailsContainer.innerHTML += `<div style="color: #a94442;">✗ 加载用户编辑失败: ${result.error ? result.error.info : code}</div>`;
             updateStepStatus('step-rollback', 'error', '加载编辑失败');
-            
+
             // 继续执行步骤 3
             setTimeout(function() {
                 executeManageUserStep3_Delete(settings, processingRate);
@@ -817,12 +826,12 @@
     // 处理用户回退过程
     function processManageUserRollback(edits, settings, index, processingRate) {
         const detailsContainer = document.getElementById('manage-user-details');
-        
+
         if (index >= edits.length) {
             // 所有编辑处理完毕
             updateStepStatus('step-rollback', 'completed', `已回退 ${edits.length} 个编辑`);
             detailsContainer.innerHTML += `<div style="color: #3c763d;">✓ 已完成所有编辑的回退</div>`;
-            
+
             // 继续执行步骤 3：加载并删除用户创建的页面
             setTimeout(function() {
                 executeManageUserStep3_Delete(settings, processingRate);
@@ -832,14 +841,14 @@
 
         const edit = edits[index];
         const progressElement = document.getElementById('progress');
-        
+
         // 更新进度
         const progressPercentage = Math.round((index / edits.length) * 33); // 回退占总进度的33%
         progressElement.style.width = progressPercentage + '%';
-        
+
         // 更新步骤状态
         updateStepStatus('step-rollback', 'active', `正在回退 ${index + 1}/${edits.length}`);
-        
+
         // 执行回退API调用
         rollbackEdit(edit.title, settings.username, settings.rollback.reason, function(success, message) {
             // 添加结果到列表
@@ -860,13 +869,13 @@
     function executeManageUserStep3_Delete(settings, processingRate) {
         // 更新步骤状态
         updateStepStatus('step-delete', 'active', '正在加载用户创建的页面...');
-        
+
         const detailsContainer = document.getElementById('manage-user-details');
         detailsContainer.innerHTML += `<div style="margin-top: 15px;"><strong>正在加载用户 ${settings.username} 创建的页面...</strong></div>`;
-        
+
         // 加载用户创建的页面
         const api = new mw.Api();
-        
+
         // 构建参数
         let params = {
             action: 'query',
@@ -882,7 +891,7 @@
         if (settings.dateLimit) {
             params.ucend = settings.dateLimit + 'T00:00:00Z'; // 转换为ISO格式
         }
-        
+
         // 添加命名空间限制
         if (settings.namespaces && settings.namespaces.length > 0) {
             params.ucnamespace = settings.namespaces.join('|');
@@ -908,7 +917,7 @@
                             timestamp: contrib.timestamp
                         });
                     });
-                    
+
                     // 更新状态信息
                     detailsContainer.innerHTML += `<div>已找到 ${userPages.length} 个页面，继续搜索...</div>`;
 
@@ -920,7 +929,7 @@
                         if (userPages.length > 0) {
                             detailsContainer.innerHTML += `<div>共找到 ${userPages.length} 个页面，准备删除...</div>`;
                             updateStepStatus('step-delete', 'active', `找到 ${userPages.length} 个页面`);
-                            
+
                             // 开始删除页面
                             processManageUserDeletion(userPages, settings, 0, processingRate);
                         } else {
@@ -957,7 +966,7 @@
     // 处理用户页面删除过程
     function processManageUserDeletion(pages, settings, index, processingRate) {
         const detailsContainer = document.getElementById('manage-user-details');
-        
+
         if (index >= pages.length) {
             // 所有页面处理完毕
             updateStepStatus('step-delete', 'completed', `已删除 ${pages.length} 个页面`);
@@ -968,15 +977,15 @@
 
         const page = pages[index].title;
         const progressElement = document.getElementById('progress');
-        
+
         // 更新进度
         // 将进度范围设为33%-100%（前33%由回退步骤占据）
         const progressPercentage = 33 + Math.round((index / pages.length) * 67);
         progressElement.style.width = progressPercentage + '%';
-        
+
         // 更新步骤状态
         updateStepStatus('step-delete', 'active', `正在删除 ${index + 1}/${pages.length}`);
-        
+
         // 准备保护参数
         let protectionParams = null;
         if (settings.deletion.protect) {
@@ -986,7 +995,7 @@
                 reason: settings.deletion.protection.reason
             };
         }
-        
+
         // 执行删除API调用
         const api = new mw.Api();
         api.postWithToken('csrf', {
@@ -1030,11 +1039,11 @@
         const progressElement = document.getElementById('progress');
         const progressTextElement = document.getElementById('progress-text');
         const detailsContainer = document.getElementById('manage-user-details');
-        
+
         // 设置进度为100%
         progressElement.style.width = '100%';
         progressTextElement.textContent = `用户 ${settings.username} 处理完成!`;
-        
+
         // 添加总结信息
         detailsContainer.innerHTML += `
             <div style="margin-top: 20px; padding: 10px; background-color: #dff0d8; border: 1px solid #d6e9c6; border-radius: 4px; color: #3c763d;">
@@ -1042,7 +1051,7 @@
                 所有操作已执行结束。
             </div>
         `;
-        
+
         // 提示消息
         showMessage(`用户 ${settings.username} 处理完成!`, 'success');
     }
@@ -1050,13 +1059,13 @@
     // 更新步骤状态
     function updateStepStatus(stepId, status, statusText) {
         const stepElement = document.getElementById(stepId);
-        
+
         // 移除所有状态类
         stepElement.classList.remove('active', 'completed', 'error');
-        
+
         // 添加当前状态类
         stepElement.classList.add(status);
-        
+
         // 更新状态文本
         stepElement.querySelector('.progress-status').textContent = statusText;
     }
@@ -1081,13 +1090,13 @@
                     <input type="checkbox" id="ban-user-checkbox" style="margin-right: 5px;">
                     <label for="ban-user-checkbox" style="font-weight: bold; color: #d9534f;">在获取页面前封禁该用户</label>
                 </div>
-                
+
                 <div id="ban-options" class="ban-options disabled" style="margin-top: 10px;">
                     <div style="margin-bottom: 10px;">
                         <label for="ban-reason">封禁原因：</label>
                         <input type="text" id="ban-reason" value="破坏行为" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
                     </div>
-                    
+
                     <div style="margin-bottom: 10px;">
                         <label for="ban-duration">封禁期限：</label>
                         <select id="ban-duration" style="padding: 5px;">
@@ -1102,12 +1111,12 @@
                             <option value="infinite">永久</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <input type="checkbox" id="ban-autoblock" checked style="margin-right: 5px;">
                         <label for="ban-autoblock">自动封禁最后使用的IP地址</label>
                     </div>
-                    
+
                     <div>
                         <input type="checkbox" id="ban-talk-page" style="margin-right: 5px;">
                         <label for="ban-talk-page">阻止用户编辑自己的讨论页</label>
@@ -1167,7 +1176,7 @@
             }
 
             const dateLimit = document.getElementById('date-limit').value;
-            
+
             // 获取选中的命名空间
             const namespaces = [];
             if (document.getElementById('namespace-main').checked) namespaces.push(0);
@@ -1179,17 +1188,17 @@
 
             // 检查是否需要封禁用户
             const shouldBanUser = document.getElementById('ban-user-checkbox').checked;
-            
+
             if (shouldBanUser) {
                 // 获取封禁参数
                 const banReason = document.getElementById('ban-reason').value;
                 const banDuration = document.getElementById('ban-duration').value;
                 const autoBlock = document.getElementById('ban-autoblock').checked;
                 const disallowTalkPage = document.getElementById('ban-talk-page').checked;
-                
+
                 // 显示封禁状态
                 document.getElementById('user-pages-results').innerHTML = '<p>正在封禁用户 ' + username + '，请稍候...</p>';
-                
+
                 // 执行封禁
                 banUser(username, banReason, banDuration, autoBlock, disallowTalkPage, function(success, message) {
                     if (success) {
@@ -1227,7 +1236,7 @@
                     <label for="rollback-reason">回退原因：</label>
                     <input type="text" id="rollback-reason" value="回退破坏性编辑" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
                 </div>
-                
+
                 <div style="margin-bottom: 10px;">
                     <label for="rollback-limit">最大处理数量：</label>
                     <input type="number" id="rollback-limit" value="100" min="1" max="500" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;">
@@ -1278,7 +1287,7 @@
 
             const dateLimit = document.getElementById('rollback-date-limit').value;
             const limit = parseInt(document.getElementById('rollback-limit').value) || 100;
-            
+
             // 获取选中的命名空间
             const namespaces = [];
             if (document.getElementById('rollback-namespace-main').checked) namespaces.push(0);
@@ -1297,7 +1306,7 @@
     function loadUserEdits(username, dateLimit, namespaces, limit) {
         const api = new mw.Api();
         const resultContainer = document.getElementById('rollback-results');
-        
+
         // 构建参数
         let params = {
             action: 'query',
@@ -1312,7 +1321,7 @@
         if (dateLimit) {
             params.ucend = dateLimit + 'T00:00:00Z'; // 转换为ISO格式
         }
-        
+
         // 添加命名空间限制
         if (namespaces && namespaces.length > 0) {
             params.ucnamespace = namespaces.join('|');
@@ -1335,7 +1344,7 @@
                         comment: contrib.comment
                     });
                 });
-                
+
                 // 显示结果
                 displayUserEditsResults(username, userEdits);
             } else {
@@ -1362,7 +1371,7 @@
                 <input type="checkbox" id="select-all-edits" checked>
                 <label for="select-all-edits">全选/取消全选</label>
             </div>
-            
+
             <div class="page-list-container">
         `;
 
@@ -1370,14 +1379,14 @@
             // 格式化时间戳为可读格式
             const date = new Date(edit.timestamp);
             const formattedDate = date.toLocaleString();
-            
+
             // 处理可能为空的编辑摘要
             const summary = edit.comment ? `(${edit.comment})` : '(无编辑摘要)';
 
             editsContent += `
                 <div class="edit-item">
                     <div class="edit-info">
-                        <input type="checkbox" id="edit-${index}" class="edit-checkbox" 
+                        <input type="checkbox" id="edit-${index}" class="edit-checkbox"
                                data-title="${edit.title}" data-revid="${edit.revid}" checked>
                         <label for="edit-${index}">${edit.title}</label>
                         <small style="margin-left: 5px; color: #666;">${formattedDate} ${summary}</small>
@@ -1403,7 +1412,7 @@
         `;
 
         resultContainer.innerHTML = html;
-        
+
         // 添加折叠区域的事件监听器
         addCollapsibleSectionsEventListeners();
 
@@ -1432,21 +1441,21 @@
 
             // 获取回退原因
             const reason = document.getElementById('rollback-reason').value;
-            
+
             // 确认对话框
             if (confirm(`您即将回退 ${selectedEdits.length} 个编辑。是否继续？`)) {
                 // 关闭模态框
                 closeModal();
-                
+
                 // 显示进度条
                 document.getElementById('deletion-status').style.display = 'block';
                 document.getElementById('progress').style.width = '0%';
                 document.getElementById('progress-text').textContent = '准备回退编辑...';
-                
+
                 // 清空结果区
                 const resultsElement = document.getElementById('deletion-results');
                 resultsElement.innerHTML = '';
-                
+
                 // 开始回退
                 const processingRate = parseFloat(document.getElementById('processing-rate').value) * 1000; // 转换为毫秒
                 processRollback(selectedEdits, username, 0, reason, processingRate);
@@ -1495,7 +1504,7 @@
     // 回退编辑实现
     function rollbackEdit(title, user, reason, callback) {
         const api = new mw.Api();
-        
+
         // 使用postWithToken方法，但使用'rollback'令牌类型
         api.postWithToken('rollback', {
             action: 'rollback',
@@ -1517,10 +1526,10 @@
     // 封禁用户功能
     function banUser(username, reason, duration, autoBlock, disallowTalkPage, callback) {
         const api = new mw.Api();
-        
+
         // 转换封禁期限为MediaWiki API接受的格式
         const expiry = convertBanDurationToTimestamp(duration);
-        
+
         // 执行封禁API调用
         api.postWithToken('csrf', {
             action: 'block',
@@ -1551,7 +1560,7 @@
 
         // 获取当前日期
         const now = new Date();
-        
+
         // 根据选择的选项计算到期日期
         switch (duration) {
             case '1 day':
@@ -1582,7 +1591,7 @@
                 // 如果无法识别选项，默认为一天
                 now.setDate(now.getDate() + 1);
         }
-        
+
         // 将日期格式化为MediaWiki API接受的格式：YYYY-MM-DDThh:mm:ssZ
         return now.toISOString().replace(/\.\d+Z$/, 'Z');
     }
@@ -1591,7 +1600,7 @@
     function loadUserCreatedPages(username, dateLimit, namespaces) {
         const api = new mw.Api();
         const resultContainer = document.getElementById('user-pages-results');
-        
+
         // 构建参数
         let params = {
             action: 'query',
@@ -1607,7 +1616,7 @@
         if (dateLimit) {
             params.ucend = dateLimit + 'T00:00:00Z'; // 转换为ISO格式
         }
-        
+
         // 添加命名空间限制
         if (namespaces && namespaces.length > 0) {
             params.ucnamespace = namespaces.join('|');
@@ -1636,7 +1645,7 @@
                             timestamp: contrib.timestamp
                         });
                     });
-                    
+
                     // 更新状态信息
                     resultContainer.innerHTML = `<p>已找到 ${userPages.length} 个由 ${username} 创建的页面，正在继续搜索...</p>`;
 
@@ -1682,7 +1691,7 @@
                 <input type="checkbox" id="select-all-user-pages" checked>
                 <label for="select-all-user-pages">全选/取消全选</label>
             </div>
-            
+
             <div class="page-list-container">
         `;
 
@@ -1717,7 +1726,7 @@
         `;
 
         resultContainer.innerHTML = html;
-        
+
         // 修复：添加折叠区域的事件监听器
         addCollapsibleSectionsEventListeners();
 
@@ -1793,7 +1802,7 @@
                         ${namespaceOptions}
                     </select>
                 </div>
-                
+
                 <div style="margin-bottom: 15px;">
                     <label for="regex-flags">正则表达式标志：</label>
                     <input type="text" id="regex-flags" style="width: 100px; padding: 8px; box-sizing: border-box; margin-top: 5px; border: 1px solid #ddd;" value="i" placeholder="例如: i">
@@ -1844,7 +1853,7 @@
     function searchPagesByRegex(pattern, namespace, flags) {
         const api = new mw.Api();
         const resultContainer = document.getElementById('regex-results');
-        
+
         try {
             // 测试正则表达式是否有效
             new RegExp(pattern, flags);
@@ -1868,13 +1877,13 @@
 
         // 创建正则表达式对象
         const regex = new RegExp(pattern, flags);
-        
+
         // 显示加载状态
         resultContainer.innerHTML = '<p>正在加载页面，这可能需要一些时间...</p>';
 
         // 保存匹配的页面
         let matchedPages = [];
-        
+
         // 执行递归API调用来获取所有页面
         function getAllPages(continueParam) {
             if (continueParam) {
@@ -1893,7 +1902,7 @@
                             matchedPages.push(page.title);
                         }
                     });
-                    
+
                     // 更新状态
                     resultContainer.innerHTML = `<p>已找到 ${matchedPages.length} 个匹配页面，正在继续搜索...</p>`;
 
@@ -1931,7 +1940,7 @@
                 <input type="checkbox" id="select-all-regex" checked>
                 <label for="select-all-regex">全选/取消全选</label>
             </div>
-            
+
             <div class="page-list-container">
         `;
 
@@ -1961,7 +1970,7 @@
         `;
 
         resultContainer.innerHTML = html;
-        
+
         // 修复：添加折叠区域的事件监听器
         addCollapsibleSectionsEventListeners();
 
@@ -2191,7 +2200,7 @@
                 <input type="checkbox" id="select-all-category" checked>
                 <label for="select-all-category">全选/取消全选</label>
             </div>
-            
+
             <div class="page-list-container">
         `;
 
@@ -2221,7 +2230,7 @@
         `;
 
         resultContainer.innerHTML = html;
-        
+
         // 修复：添加折叠区域的事件监听器
         addCollapsibleSectionsEventListeners();
 
@@ -2301,7 +2310,7 @@
                 <input type="checkbox" id="select-all-prefix" checked>
                 <label for="select-all-prefix">全选/取消全选</label>
             </div>
-            
+
             <div class="page-list-container">
         `;
 
@@ -2331,7 +2340,7 @@
         `;
 
         resultContainer.innerHTML = html;
-        
+
         // 修复：添加折叠区域的事件监听器
         addCollapsibleSectionsEventListeners();
 
@@ -2412,8 +2421,8 @@
         const totalSeconds = pagesToDelete.length * parseFloat(processingRate);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = Math.round(totalSeconds % 60);
-        const estimatedTime = minutes > 0 ? 
-            `${minutes}分${seconds}秒` : 
+        const estimatedTime = minutes > 0 ?
+            `${minutes}分${seconds}秒` :
             `${seconds}秒`;
 
         // 显示预览
@@ -2609,7 +2618,7 @@
         }).fail(function(code, result) {
             // 保护失败
             const errorMessage = result.error ? result.error.info : code;
-            
+
             if (typeof resultsElementOrCallbacks === 'object' && resultsElementOrCallbacks.onFail) {
                 // 使用回调方法
                 resultsElementOrCallbacks.onFail(errorMessage);
